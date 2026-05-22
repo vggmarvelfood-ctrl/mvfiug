@@ -1947,10 +1947,17 @@ function obtenerCuponDelDia() {
  const bannerMartes = document.getElementById('martes-banner');
  if (!container) return;
 
- const hoy = new Date().getDay(); 
+ const _hoyDate = new Date();
+ const _diaSemana = _hoyDate.getDay();
+ const _MESES_ES = ['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
+ const hoy = _diaSemana;
 
  if (hoy === 2) {
- if (bannerMartes) bannerMartes.classList.remove('hidden');
+ if (bannerMartes) {
+  bannerMartes.classList.remove('hidden');
+  const _titEl = document.getElementById('martes-banner-titulo');
+  if (_titEl) _titEl.textContent = 'MARTES DE ' + _MESES_ES[_hoyDate.getMonth()];
+ }
  } else {
  if (bannerMartes) bannerMartes.classList.add('hidden');
  }
@@ -4110,6 +4117,16 @@ async function admCargarMercadoPago() {
  if (!inp) return;
  try {
  const snap = await window.db.collection('config_menu').doc('mercadopago').get();
+ // Cargar estado del toggle activo/inactivo
+ const mpActivo = snap.exists ? (snap.data()?.mpActivo !== false) : false;
+ window._mpActivo = mpActivo;
+ const toggleEl = document.getElementById('adm-mp-master-toggle');
+ const toggleDesc = document.getElementById('adm-mp-toggle-desc');
+ if (toggleEl) toggleEl.checked = mpActivo;
+ if (toggleDesc) toggleDesc.textContent = mpActivo
+   ? 'Activado — los clientes ven la opción Mercado Pago'
+   : 'Desactivado — la opción no aparece para los clientes';
+ _syncMpOptionVisibility();
  if (snap.exists && snap.data()?.accessToken) {
  const tk = snap.data().accessToken;
  // Mostrar solo los últimos 6 chars del token
@@ -4183,6 +4200,57 @@ window.admMpGuardar = async function() {
  fb.textContent = 'Error al guardar: ' + e.message;
  }
 };
+
+// ── MERCADO PAGO — TOGGLE ACTIVO / INACTIVO ──────────────────────────────────
+// Sincroniza la visibilidad de la opción MP en el select del checkout
+function _syncMpOptionVisibility() {
+ const opt = document.querySelector('#p-metodo option[value="Mercado Pago"]');
+ if (!opt) return;
+ const activo = window._mpActivo === true;
+ opt.disabled = !activo;
+ opt.style.display = activo ? '' : 'none';
+ // Si estaba seleccionado y se desactiva, resetear a Efectivo
+ const sel = document.getElementById('p-metodo');
+ if (sel && sel.value === 'Mercado Pago' && !activo) sel.value = 'Efectivo';
+}
+
+// Función llamada desde el toggle del admin
+window.admMpToggleActivo = async function(checked) {
+ const desc = document.getElementById('adm-mp-toggle-desc');
+ try {
+   await window.db.collection('config_menu').doc('mercadopago').set({ mpActivo: checked }, { merge: true });
+   window._mpActivo = checked;
+   _syncMpOptionVisibility();
+   if (desc) desc.textContent = checked
+     ? 'Activado — los clientes ven la opción Mercado Pago'
+     : 'Desactivado — la opción no aparece para los clientes';
+ } catch(e) {
+   console.error('[MP Toggle]', e);
+   // Revertir el toggle si falla
+   const toggleEl = document.getElementById('adm-mp-master-toggle');
+   if (toggleEl) toggleEl.checked = !checked;
+ }
+};
+
+// Cargar estado MP al iniciar la app (para el checkout de clientes)
+(function _initMpStatus() {
+ function _load() {
+   if (!window.db) { setTimeout(_load, 800); return; }
+   window.db.collection('config_menu').doc('mercadopago').get().then(snap => {
+     window._mpActivo = snap.exists ? (snap.data()?.mpActivo !== false) : false;
+     // Solo mostrar MP si está explícitamente activado Y tiene token
+     if (!snap.exists || !snap.data()?.accessToken) window._mpActivo = false;
+     _syncMpOptionVisibility();
+   }).catch(() => {
+     window._mpActivo = false;
+     _syncMpOptionVisibility();
+   });
+ }
+ if (document.readyState === 'loading') {
+   document.addEventListener('DOMContentLoaded', _load);
+ } else { _load(); }
+ document.addEventListener('firebase:ready', _load, { once: true });
+})();
 
 // GESTIÓN DE PROMOS (CRUD COMPLETO) 
 let admPromosData = [];
