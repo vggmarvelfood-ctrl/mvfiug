@@ -1989,8 +1989,8 @@ function obtenerCuponDelDia() {
  ...burgerDelDia,
  id: `PROMO-DIA-NORMAL-${hoy}`,
  n: `PROMO ${burgerDelDia.n} + Papas chicas`,
- pOriginal: 15500,
- p: 13000,
+ pOriginal: 15300,
+ p: 14300,
  badge: "OPCIÓN CARNE",
  ings: [] // CORRECCIÓN
  },
@@ -1998,8 +1998,8 @@ function obtenerCuponDelDia() {
  ...burgerDelDia,
  id: `PROMO-DIA-VEGGIE-${hoy}`,
  n: `PROMO ${burgerDelDia.n} VEGGIE + Papas chicas`,
- pOriginal: 11900,
- p: 10600,
+ pOriginal: 13000,
+ p: 11600,
  badge: "OPCIÓN VEGGIE",
  ings: [] // CORRECCIÓN
  }
