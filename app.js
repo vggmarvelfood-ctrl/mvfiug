@@ -301,17 +301,17 @@ const MENU = [
     cat: "Hamburguesas Veggie",
     items: [
       { id: 14, n: "Vegan Valkyria", p: 6800, d: "Medallón de lentejas, mayonesa vegana, lechuga, tomate, cebolla morada y pepino. Opción: Choclo y Arroz o Remolacha y Semillas.", img: "https://i.ibb.co/fVxV4hw1/DSC0062.jpg", ings: ["Lentejas", "Mayo vegana", "Lechuga", "Tomate", "Cebolla morada", "Pepino"] },
-      { id: 30, n: "Black Panther Veggie", p: 6800, d: "Cebolla caramelizada, roquefort, mayonesa y honey mustard. Opción: Choclo y Arroz o Remolacha y Semillas.", img: "https://i.ibb.co/fVxV4hw1/DSC0062.jpg", ings: ["Cebolla caramelizada", "Roquefort", "Mayonesa", "Honey mustard"] },
+      { id: 30, n: "Black Panther Veggie", p: 6800, d: "Cebolla caramelizada, roquefort, mayonesa y honey mustard. Opción: Choclo y Arroz o Remolacha y Semillas.", img: "https://i.ibb.co/4nbNZ5Pg/Black-Panther.png", ings: ["Cebolla caramelizada", "Roquefort", "Mayonesa", "Honey mustard"] },
       { id: 31, n: "Capitán América Veggie", p: 6800, d: "Muzzarella, tomate, lechuga, huevo frito y mayonesa. Opción: Choclo y Arroz o Remolacha y Semillas.", img: "https://i.ibb.co/rGV81zLX/Capi-veggie.png", ings: ["Muzzarella", "Tomate", "Lechuga", "Huevo frito", "Mayonesa"] },
-      { id: 32, n: "Capitana Marvel Veggie", p: 6800, d: "Lechuga, cebolla, pepino, cheddar y salsa Marvel. Opción: Choclo y Arroz o Remolacha y Semillas.", img: "https://i.ibb.co/fVxV4hw1/DSC0062.jpg", ings: ["Lechuga", "Cebolla", "Pepino", "Cheddar", "Salsa Marvel"] },
+      { id: 32, n: "Capitana Marvel Veggie", p: 6800, d: "Lechuga, cebolla, pepino, cheddar y salsa Marvel. Opción: Choclo y Arroz o Remolacha y Semillas.", img: "https://i.ibb.co/fzVQzxgW/capi-marvel-gaga.png", ings: ["Lechuga", "Cebolla", "Pepino", "Cheddar", "Salsa Marvel"] },
       { id: 33, n: "Dr Strange Veggie", p: 6800, d: "Extra cheddar, lechuga, tomate y mayonesa. Opción: Choclo y Arroz o Remolacha y Semillas.", img: "https://i.ibb.co/G4NBqTrn/Dr-strange.png", ings: ["Extra cheddar", "Lechuga", "Tomate", "Mayonesa"] },
       { id: 34, n: "Hulk Veggie", p: 6800, d: "Cheddar, BBQ y cebolla caramelizada. Opción: Choclo y Arroz o Remolacha y Semillas.", img: "https://i.ibb.co/1GR38SQw/Iron-man.png", ings: ["Cheddar", "BBQ", "Cebolla caramelizada"] },
       { id: 35, n: "Iron Man Veggie", p: 6800, d: "Cebolla caramelizada, BBQ y cheddar. Opción: Choclo y Arroz o Remolacha y Semillas.", img: "https://i.ibb.co/1GR38SQw/Iron-man.png", ings: ["Cebolla caramelizada", "BBQ", "Cheddar"] },
       { id: 36, n: "Loki Veggie", p: 6800, d: "Lechuga, provolone, cheddar picante, mayonesa y cebolla. Opción: Choclo y Arroz o Remolacha y Semillas.", img: "https://i.ibb.co/xSZw4Rbg/Loki.png", ings: ["Lechuga", "Provolone", "Cheddar picante", "Mayonesa", "Cebolla"] },
-      { id: 37, n: "Natasha Veggie", p: 6800, d: "Cheddar. Opción: Choclo y Arroz o Remolacha y Semillas.", img: "https://i.ibb.co/fVxV4hw1/DSC0062.jpg", ings: ["Cheddar"] },
-      { id: 38, n: "Peter Parker Veggie", p: 6800, d: "Cebolla caramelizada, cheddar y ketchup. Opción: Choclo y Arroz o Remolacha y Semillas.", img: "https://i.ibb.co/fVxV4hw1/DSC0062.jpg", ings: ["Cebolla caramelizada", "Cheddar", "Ketchup"] },
-      { id: 39, n: "Vision Veggie", p: 6800, d: "Lechuga, tomate, muzarella y aderezo de albahaca. Opción: Choclo y Arroz o Remolacha y Semillas.", img: "https://i.ibb.co/fVxV4hw1/DSC0062.jpg", ings: ["Lechuga", "Tomate", "Muzarella", "Aderezo de albahaca"] },
-      { id: 40, n: "Wanda Veggie", p: 6800, d: "Lechuga, tomate, muzarella, cebolla morada y palta. Opción: Choclo y Arroz o Remolacha y Semillas.", img: "https://i.ibb.co/fVxV4hw1/DSC0062.jpg", ings: ["Lechuga", "Tomate", "Muzarella", "Cebolla morada", "Palta"] }
+      { id: 37, n: "Natasha Veggie", p: 6800, d: "Cheddar. Opción: Choclo y Arroz o Remolacha y Semillas.", img: "https://i.ibb.co/mrK9yk4x/Natasha-veggie.png", ings: ["Cheddar"] },
+      { id: 38, n: "Peter Parker Veggie", p: 6800, d: "Cebolla caramelizada, cheddar y ketchup. Opción: Choclo y Arroz o Remolacha y Semillas.", img: "https://i.ibb.co/b5xZFfFX/Peter-veggie.png", ings: ["Cebolla caramelizada", "Cheddar", "Ketchup"] },
+      { id: 39, n: "Vision Veggie", p: 6800, d: "Lechuga, tomate, muzarella y aderezo de albahaca. Opción: Choclo y Arroz o Remolacha y Semillas.", img: "https://i.ibb.co/67CFDgxV/vision-veggie-rappi.png", ings: ["Lechuga", "Tomate", "Muzarella", "Aderezo de albahaca"] },
+      { id: 40, n: "Wanda Veggie", p: 6800, d: "Lechuga, tomate, muzarella, cebolla morada y palta. Opción: Choclo y Arroz o Remolacha y Semillas.", img: "https://i.ibb.co/4w6QvhMz/Wanda.png", ings: ["Lechuga", "Tomate", "Muzarella", "Cebolla morada", "Palta"] }
     ]
   },
   {
