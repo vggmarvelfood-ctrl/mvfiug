@@ -1352,7 +1352,7 @@ window.procesarPedido = async () => {
  if (pago === 'Mercado Pago') {
  mostrarSucesoPedido('mercadopago', `https://wa.me/${SUC_MAP[sucId].wsp}?text=${t}`, total);
  } else {
- // Efectivo / Transferencia → pantalla verde → WhatsApp
+ // Efectivo / Tarjeta → pantalla verde → WhatsApp
  mostrarSucesoPedido('whatsapp', `https://wa.me/${SUC_MAP[sucId].wsp}?text=${t}`, total);
  }
 
@@ -3416,7 +3416,7 @@ function _integRenderTab() {
  total: 15000,
  items: [{ n: "HULK BURGER", cant: 2, totalItem: 10000 }],
  horario: "21:00 a 21:30",
- pago: "Efectivo | Mercado Pago | Transferencia"
+ pago: "Efectivo | Mercado Pago | Tarjeta"
  }, null, 2)}</pre> </div> <!-- Log --> <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;"> <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;"> <div style="font-size:11px;color:#9ca3af;font-weight:700;text-transform:uppercase;">Log de actividad</div> <button onclick="_integLogs.length=0;_integLog('Log limpiado')" style="background:transparent;border:1px solid #333;color:#9ca3af;padding:3px 8px;border-radius:6px;font-size:10px;cursor:pointer;">Limpiar</button> </div> <div id="integ-log-body" style="max-height:160px;overflow-y:auto;"> <div style="font-size:11px;color:#6b7280;">Sin actividad aún...</div> </div> </div> </div><!-- /integ-panel-webhook --> <!-- Panel Sistema Propio --> <div id="integ-panel-propio" style="display:none;"> <div style="background:rgba(139,92,246,0.08);border:1px solid rgba(139,92,246,0.3);border-radius:14px;padding:16px;margin-bottom:16px;"> <div style="font-size:13px;font-weight:800;color:#a78bfa;margin-bottom:6px;">VINCULACION CON TU SISTEMA PROPIO</div> <p style="font-size:12px;color:#9ca3af;line-height:1.5;margin:0;">Si tenes un sistema de gestión desarrollado desde cero, podes recibir los pedidos automaticamente via endpoint HTTP. Tu sistema expone una ruta y Marvel Food la llama con cada pedido nuevo.</p> </div> <!-- Como funciona --> <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:12px;"> <div style="font-size:11px;color:#9ca3af;font-weight:700;text-transform:uppercase;margin-bottom:12px;">Como funciona</div> <div style="display:flex;flex-direction:column;gap:12px;"> <div style="display:flex;gap:12px;align-items:flex-start;"> <div style="width:26px;height:26px;border-radius:50%;background:rgba(139,92,246,0.2);border:1px solid #a78bfa;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#a78bfa;flex-shrink:0;">1</div> <div><div style="font-size:13px;font-weight:700;color:var(--white);">Tu sistema expone un endpoint</div><div style="font-size:11px;color:#9ca3af;margin-top:2px;">Creá una ruta POST en tu servidor que reciba JSON. Ej: <code style="color:#a78bfa;background:#111;padding:1px 5px;border-radius:3px;">https://tu-sistema.com/api/pedidos/nuevo</code></div></div> </div> <div style="display:flex;gap:12px;align-items:flex-start;"> <div style="width:26px;height:26px;border-radius:50%;background:rgba(139,92,246,0.2);border:1px solid #a78bfa;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#a78bfa;flex-shrink:0;">2</div> <div><div style="font-size:13px;font-weight:700;color:var(--white);">Configuras el URL aqui</div><div style="font-size:11px;color:#9ca3af;margin-top:2px;">Marvel Food llamara a ese endpoint con cada evento: nuevo pedido, cambio de estado, edicion.</div></div> </div> <div style="display:flex;gap:12px;align-items:flex-start;"> <div style="width:26px;height:26px;border-radius:50%;background:rgba(139,92,246,0.2);border:1px solid #a78bfa;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#a78bfa;flex-shrink:0;">3</div> <div><div style="font-size:13px;font-weight:700;color:var(--white);">Tu sistema procesa el JSON</div><div style="font-size:11px;color:#9ca3af;margin-top:2px;">Recibis el payload completo con todos los datos del pedido y los cargás en tu base de datos o pantalla de cocina.</div></div> </div> </div> </div> <!-- Config endpoint propio --> <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:12px;"> <div style="font-size:11px;color:#9ca3af;font-weight:700;text-transform:uppercase;margin-bottom:10px;">Configuracion del endpoint</div> <label style="display:block;font-size:10px;color:#9ca3af;font-weight:700;margin-bottom:4px;">URL DE TU SISTEMA</label> <input id="propio-url" type="url" placeholder="https://mi-sistema.com/api/pedidos/nuevo" value="${cfg.propioUrl||''}"
  style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--white);font-size:12px;margin-bottom:10px;outline:none;"> <label style="display:block;font-size:10px;color:#9ca3af;font-weight:700;margin-bottom:4px;">CLAVE DE AUTENTICACION (opcional)</label> <input id="propio-secret" type="text" placeholder="Bearer token o API key de tu sistema" value="${cfg.propioSecret||''}"
  style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--white);font-size:12px;margin-bottom:10px;outline:none;"> <label style="display:block;font-size:10px;color:#9ca3af;font-weight:700;margin-bottom:4px;">HEADER DE AUTENTICACION</label> <select id="propio-auth-header" style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--white);font-size:12px;margin-bottom:10px;outline:none;"> <option value="X-Marvel-Secret" ${(cfg.propioAuthHeader||'X-Marvel-Secret')==='X-Marvel-Secret'?'selected':''}>X-Marvel-Secret (default)</option> <option value="Authorization" ${cfg.propioAuthHeader==='Authorization'?'selected':''}>Authorization: Bearer</option> <option value="X-API-Key" ${cfg.propioAuthHeader==='X-API-Key'?'selected':''}>X-API-Key</option> <option value="X-Token" ${cfg.propioAuthHeader==='X-Token'?'selected':''}>X-Token</option> </select> <div style="display:flex;gap:8px;"> <label style="display:flex;align-items:center;gap:8px;cursor:pointer;flex:1;padding:8px;background:var(--bg);border-radius:8px;border:1px solid var(--border);"> <input type="checkbox" id="propio-solo-nuevos" ${cfg.propioSoloNuevos?'checked':''} style="accent-color:#a78bfa;width:16px;height:16px;"> <span style="font-size:12px;color:var(--white);">Solo pedidos nuevos</span> </label> <label style="display:flex;align-items:center;gap:8px;cursor:pointer;flex:1;padding:8px;background:var(--bg);border-radius:8px;border:1px solid var(--border);"> <input type="checkbox" id="propio-estados" ${!cfg.propioSoloNuevos?'checked':''} style="accent-color:#a78bfa;width:16px;height:16px;"> <span style="font-size:12px;color:var(--white);">Incluir cambios de estado</span> </label> </div> </div> <!-- Boton guardar + test --> <div style="display:flex;gap:8px;margin-bottom:12px;"> <button onclick="_integGuardarPropio()" style="flex:1;padding:13px;border-radius:10px;border:none;background:#a78bfa;color:#000;font-weight:800;font-size:13px;cursor:pointer;"> Guardar
@@ -5105,7 +5105,7 @@ document.getElementById('admin-root') && document.getElementById('admin-root').a
 
 // ═══════════════════════════════════════════════════════════════════
 //  MEJORA 6 — Detección automática de pagos con Regex
-//  Parsea comprobantes de transferencia o mensajes de clientes para
+//  Parsea comprobantes de Tarjeta o mensajes de clientes para
 //  detectar montos y referencias de pago, y actualizar el pedido.
 //  En producción esto debería moverse a una Firebase Cloud Function.
 // ═══════════════════════════════════════════════════════════════════
@@ -5117,7 +5117,7 @@ document.getElementById('admin-root') && document.getElementById('admin-root').a
    * Patrones Regex para detectar información de pago en texto libre.
    * Cubre formatos comunes de comprobantes argentinos:
    *   - Mercado Pago: "Pagaste $12.500"
-   *   - Transferencia: "Transferiste $12500 a Marvel Food"
+   *   - Tarjeta: "Transferiste $12500 a Marvel Food"
    *   - Efectivo: "Pago en efectivo $12500"
    *   - Número de operación: "Operación: 1234567890"
    */
@@ -5143,7 +5143,7 @@ document.getElementById('admin-root') && document.getElementById('admin-root').a
     // Detección de "Mercado Pago" como medio de pago
     {
       nombre: 'medio',
-      regex: /(mercado\s*pago|transferencia|efectivo|débito|crédito)/gi,
+      regex: /(mercado\s*pago|Tarjeta|efectivo|débito|crédito)/gi,
       extractor: match => match[1].toLowerCase().replace(/\s+/g, '_')
     },
   ];
