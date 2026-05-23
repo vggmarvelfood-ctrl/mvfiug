@@ -300,7 +300,7 @@ const MENU = [
   {
     cat: "Hamburguesas Veggie",
     items: [
-      { id: 14, n: "Vegan Valkyria", p: 6800, d: "Medallón de lentejas, mayonesa vegana, lechuga, tomate, cebolla morada y pepino. Opción: Choclo y Arroz o Remolacha y Semillas.", img: "https://i.ibb.co/fVxV4hw1/DSC0062.jpg", ings: ["Lentejas", "Mayo vegana", "Lechuga", "Tomate", "Cebolla morada", "Pepino"] },
+      { id: 14, n: "Vegan Valkyria", p: 6800, d: "Medallón de lentejas, mayonesa vegana, lechuga, tomate, cebolla morada y pepino. Opción: Choclo y Arroz o Remolacha y Semillas.", img: "https://i.ibb.co/N6nbNCFs/valikyria.png", ings: ["Lentejas", "Mayo vegana", "Lechuga", "Tomate", "Cebolla morada", "Pepino"] },
       { id: 30, n: "Black Panther Veggie", p: 6800, d: "Cebolla caramelizada, roquefort, mayonesa y honey mustard. Opción: Choclo y Arroz o Remolacha y Semillas.", img: "https://i.ibb.co/4nbNZ5Pg/Black-Panther.png", ings: ["Cebolla caramelizada", "Roquefort", "Mayonesa", "Honey mustard"] },
       { id: 31, n: "Capitán América Veggie", p: 6800, d: "Muzzarella, tomate, lechuga, huevo frito y mayonesa. Opción: Choclo y Arroz o Remolacha y Semillas.", img: "https://i.ibb.co/rGV81zLX/Capi-veggie.png", ings: ["Muzzarella", "Tomate", "Lechuga", "Huevo frito", "Mayonesa"] },
       { id: 32, n: "Capitana Marvel Veggie", p: 6800, d: "Lechuga, cebolla, pepino, cheddar y salsa Marvel. Opción: Choclo y Arroz o Remolacha y Semillas.", img: "https://i.ibb.co/fzVQzxgW/capi-marvel-gaga.png", ings: ["Lechuga", "Cebolla", "Pepino", "Cheddar", "Salsa Marvel"] },
