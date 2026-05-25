@@ -1,6 +1,6 @@
 // Firebase Modular 10.7.1 — inicialización y wrappers de compatibilidad
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-import { initializeAppCheck, ReCaptchaV3Provider } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app-check.js';
+import { initializeAppCheck, ReCaptchaEnterpriseProvider } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app-check.js';
 import {
  getFirestore, collection, doc,
  getDoc, getDocs, addDoc, updateDoc, deleteDoc, setDoc,
@@ -13,64 +13,18 @@ import {
  onAuthStateChanged, signOut
 } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
 
-// ── CONFIGURACIÓN DESDE VARIABLES DE ENTORNO ────────────────────────────────
-// Los valores los inyecta Vercel en build time a través de Environment Variables.
-// En Vercel → Settings → Environment Variables agregá cada una con prefijo VITE_FB_
-// Nunca hardcodear estas claves en el código fuente ni commitearlas al repo.
-//
-// Variables requeridas en Vercel:
-//   VITE_FB_API_KEY
-//   VITE_FB_AUTH_DOMAIN
-//   VITE_FB_PROJECT_ID
-//   VITE_FB_STORAGE_BUCKET
-//   VITE_FB_MESSAGING_SENDER_ID
-//   VITE_FB_APP_ID
-//   VITE_FB_MEASUREMENT_ID  (opcional — solo si usás Analytics)
-//
-// Si no usás Vite como bundler, podés usar el objeto window.__FB_CONFIG__
-// inyectado desde vercel.json con un script de build, o migrar a Vite.
-// Ver: https://vitejs.dev/guide/env-and-mode.html
-
-const _fbConfig = (() => {
-  // Soporte para Vite (import.meta.env) — disponible si usás bundler
-  if (typeof import !== 'undefined') {
-    try {
-      const env = (typeof import !== 'undefined' && import.meta && import.meta.env) ? import.meta.env : {};
-      if (env.VITE_FB_API_KEY) {
-        return {
-          apiKey:            env.VITE_FB_API_KEY,
-          authDomain:        env.VITE_FB_AUTH_DOMAIN,
-          projectId:         env.VITE_FB_PROJECT_ID,
-          storageBucket:     env.VITE_FB_STORAGE_BUCKET,
-          messagingSenderId: env.VITE_FB_MESSAGING_SENDER_ID,
-          appId:             env.VITE_FB_APP_ID,
-          measurementId:     env.VITE_FB_MEASUREMENT_ID,
-        };
-      }
-    } catch (_) {}
-  }
-  // Soporte para inyección por window.__FB_CONFIG__ (build clásico sin Vite)
-  // En vercel.json o tu script de build generás un snippet que define
-  // window.__FB_CONFIG__ = { apiKey: process.env.FB_API_KEY, ... }
-  if (window.__FB_CONFIG__) return window.__FB_CONFIG__;
-
-  // Fallback para desarrollo local — creá un archivo .env.local con las variables
-  // y nunca lo subas al repo (.gitignore debe incluir .env*)
-  console.warn(
-    '[Firebase] ⚠️  Usando config de fallback para desarrollo local.\n' +
-    'En producción las variables de entorno deben estar configuradas en Vercel.\n' +
-    'Agregá un archivo .env.local con las variables VITE_FB_* para desarrollo.'
-  );
-  return {
-    apiKey:            'REEMPLAZAR_CON_VARIABLE_DE_ENTORNO',
-    authDomain:        'marvel-food-fa570.firebaseapp.com',
-    projectId:         'marvel-food-fa570',
-    storageBucket:     'marvel-food-fa570.firebasestorage.app',
-    messagingSenderId: 'REEMPLAZAR_CON_VARIABLE_DE_ENTORNO',
-    appId:             'REEMPLAZAR_CON_VARIABLE_DE_ENTORNO',
-    measurementId:     'G-Z7X80SVSX6',
-  };
-})();
+// ── Config desde window.__FB_CONFIG__ (inyectado por el script inline en index.html)
+// Las claves reales nunca viven en este archivo — vienen del entorno de Vercel.
+// Fallback solo para que no rompa si algo falla al inyectar.
+const _fbConfig = window.__FB_CONFIG__ || {
+  apiKey:            '',
+  authDomain:        'marvel-food-fa570.firebaseapp.com',
+  projectId:         'marvel-food-fa570',
+  storageBucket:     'marvel-food-fa570.firebasestorage.app',
+  messagingSenderId: '',
+  appId:             '',
+  measurementId:     'G-Z7X80SVSX6',
+};
 
 // Parchear DocumentSnapshot para que .exists sea una PROPIEDAD (igual que compat)
 // En v9 modular .exists() es un método; el resto de la app lo usa como propiedad.
@@ -145,32 +99,28 @@ function _colCompat(rawDb, colPath) {
 try {
  const _app = initializeApp(_fbConfig);
 
- // ── CAMBIO 3: Firebase App Check con reCAPTCHA v3 ──────────────────────
- // Protege Firestore y Auth contra bots y abuso de quota.
- // PASOS para activar en producción:
- //   1. Ir a Firebase Console → App Check → Registrar app
- //   2. Elegir reCAPTCHA v3 → obtener el Site Key
- //   3. Agregar la Site Key como variable de entorno VITE_RECAPTCHA_SITE_KEY en Vercel
- //   4. En Firebase Console → App Check → Enforcement → activar para Firestore y Auth
- // En desarrollo local el token de debug se activa automáticamente (self.FIREBASE_APPCHECK_DEBUG_TOKEN).
+ // ── App Check con reCAPTCHA v3 ────────────────────────────────────────
+ // window.__RECAPTCHA_SITE_KEY__ lo inyecta el script inline en index.html.
+ // Para activar: Firebase Console → App Check → Apps → registrar app →
+ //   elegir reCAPTCHA v3 → pegar el Site Key → luego Enforce en Firestore y Auth.
+ // En localhost: agregá FIREBASE_APPCHECK_DEBUG_TOKEN=true en .env.local y
+ //   registrá el debug token que aparece en la consola en App Check → Debug tokens.
  try {
-   const _rcSiteKey = (typeof import !== 'undefined' && import.meta && import.meta.env)
-     ? import.meta.env.VITE_RECAPTCHA_SITE_KEY
-     : (window.__RECAPTCHA_SITE_KEY__ || null);
-   if (_rcSiteKey) {
+   const _rcKey = window.__RECAPTCHA_SITE_KEY__ || null;
+   if (_rcKey) {
      initializeAppCheck(_app, {
-       provider: new ReCaptchaV3Provider(_rcSiteKey),
+       provider: new ReCaptchaEnterpriseProvider(_rcKey),
        isTokenAutoRefreshEnabled: true,
      });
-     console.log('[AppCheck] Firebase App Check activado con reCAPTCHA v3');
+     console.log('[AppCheck] Activado con reCAPTCHA v3');
    } else {
-     console.warn('[AppCheck] VITE_RECAPTCHA_SITE_KEY no definida — App Check desactivado.'
-       + ' Configurá la variable en Vercel y en Firebase Console.');
+     console.warn('[AppCheck] __RECAPTCHA_SITE_KEY__ no definida — App Check desactivado.');
    }
  } catch (_acErr) {
-   console.warn('[AppCheck] No se pudo inicializar App Check:', _acErr.message);
+   console.warn('[AppCheck] Error al inicializar:', _acErr.message);
  }
- // ────────────────────────────────────────────────────────────────────────
+ // ─────────────────────────────────────────────────────────────────────
+
  const _rawDb = getFirestore(_app);
  // Exponer config para que window.CONFIG (zona-verificacion.js) no necesite duplicarla
  window._firebaseConfig = _fbConfig;
