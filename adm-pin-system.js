@@ -196,6 +196,9 @@
     window.admGoogleLogin = async function() {
       try {
         await originalGoogleLogin();
+        // ✅ FIX: cargar el hash DESPUÉS del login Google, cuando request.auth != null.
+        // Antes se cargaba en inicializar() (antes de autenticarse) → permission-denied.
+        await cargarPinHash();
         mostrarSeccionPIN();
       } catch (err) {
         console.error('[PIN] Error en login Google:', err);
@@ -243,10 +246,8 @@
 
     // Esperar a que Firebase esté listo
     function _init() {
-      cargarPinHash().then(() => {
-        patchGoogleLogin();
-        console.log('[PIN] Sistema de autenticación 2FA inicializado');
-      });
+      patchGoogleLogin();
+      console.log('[PIN] Sistema de autenticación 2FA inicializado');
     }
 
     if (window._firebaseOk) {
