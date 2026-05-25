@@ -122,7 +122,9 @@
 
   window.admVerifyPin = async function() {
     const input = document.getElementById('adm-pin-input');
-    const feedback = document.getElementById('adm-pin-feedback');
+    // Usar adm-pin-feedback-pin (dentro de #adm-pin-section),
+    // no adm-pin-feedback (elemento de login general usado por admCheckPin).
+    const feedback = document.getElementById('adm-pin-feedback-pin');
     const btnVerificar = document.querySelector('#adm-pin-section button');
     
     if (!input || !feedback) {

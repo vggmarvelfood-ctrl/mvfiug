@@ -1,7 +1,8 @@
 {
   "rewrites": [
     { "source": "/admin",  "destination": "/index.html" },
-    { "source": "/admin/", "destination": "/index.html" }
+    { "source": "/admin/", "destination": "/index.html" },
+    { "source": "/((?!api|_vercel|icon-192\\.png|icon-512\\.png|manifest\\.json|sw\\.js|sw-pwa\\.js|.*\\.js|.*\\.css|.*\\.json|.*\\.png|.*\\.jpg|.*\\.webp|.*\\.geojson).*)", "destination": "/index.html" }
   ],
   "headers": [
     {

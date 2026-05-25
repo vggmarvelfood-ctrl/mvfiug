@@ -656,6 +656,31 @@ window.gfRunSync = async function() {
  geoJSON = toGeoJSON.kml(kmlDOM);
  }
 
+ // ── Validación estructural antes de tocar Firebase ─────────────────
+ if (!geoJSON || !Array.isArray(geoJSON.features)) {
+   throw new Error('El archivo no contiene una FeatureCollection válida.');
+ }
+ if (geoJSON.features.length === 0) {
+   gfFeedback('El archivo no tiene ninguna feature. Verificá que sea el mapa correcto.', 'warn');
+   if (btn) { btn.disabled = false; btn.textContent = 'Sincronizar con Firebase'; }
+   return;
+ }
+ // Detectar features con propiedades mínimas faltantes y advertir antes de continuar
+ const advertencias = [];
+ geoJSON.features.forEach(function(f, idx) {
+   if (!f.geometry) return; // se saltará en el loop de importación
+   const p = f.properties || {};
+   const nombre = (p.name || p.Name || '').trim();
+   if (!nombre) advertencias.push('Feature #' + (idx + 1) + ': sin propiedad "name"');
+ });
+ if (advertencias.length > 0) {
+   const resumen = advertencias.slice(0, 5).join(' · ') + (advertencias.length > 5 ? ' · y ' + (advertencias.length - 5) + ' más...' : '');
+   gfFeedback('Advertencia — se encontraron features sin nombre: ' + resumen + '. Se importarán como "Sin nombre".', 'warn');
+   // Dar 2 segundos para leer la advertencia antes de continuar
+   await new Promise(function(res) { setTimeout(res, 2000); });
+ }
+ // ── Fin validación ──────────────────────────────────────────────────
+
  const overwrite = gfEl('gf-overwrite')?.checked !== false;
  let imported = 0, skipped = 0;
  const errors = [];

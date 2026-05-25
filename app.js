@@ -2806,7 +2806,9 @@ function admLogout() {
  cerrarAdmin();
  document.getElementById('adm-app').style.display = 'none';
  document.getElementById('adm-login-screen').style.display = 'flex';
- document.getElementById('adm-pin').value = '';
+ // FIX: el input correcto es 'adm-pin-input', no 'adm-pin' (que no existe en el DOM)
+ const _pinInp = document.getElementById('adm-pin-input');
+ if (_pinInp) _pinInp.value = '';
  // Cerrar sesión de Google si está activa
  if (typeof admGoogleLogout === 'function') admGoogleLogout();
  }
