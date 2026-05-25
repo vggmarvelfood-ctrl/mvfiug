@@ -219,7 +219,7 @@
         return;
       }
       // Solo en desarrollo: usar hash de fallback
-      pinHashFromFirestore = '03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f94d87b3c7d2';
+      pinHashFromFirestore = '5458d9991d5ff0b1019fb8fe2aa431fedca2ee51d5c43f1d7812c9a086ceb372';
       console.warn('[PIN] Modo desarrollo: usando hash de fallback.');
       return;
     }

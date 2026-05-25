@@ -259,8 +259,8 @@
 <!-- Sección PIN - Se muestra después de login Google exitoso -->
 <div id="adm-pin-section" style="display:none;margin-bottom:20px;padding:20px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.3);border-radius:14px;">
   <div style="font-size:13px;font-weight:800;color:#f59e0b;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">🔐 Verificación de Seguridad</div>
-  <div style="font-size:11px;color:#9ca3af;margin-bottom:16px;">Ingresá tu código PIN de 4 dígitos para acceder al panel.</div>
-  <input type="password" id="adm-pin-input" placeholder="PIN (4 dígitos)" maxlength="4" pattern="[0-9]*" inputmode="numeric" autocomplete="off"
+  <div style="font-size:11px;color:#9ca3af;margin-bottom:16px;">Ingresá tu código PIN para acceder al panel.</div>
+  <input type="password" id="adm-pin-input" placeholder="PIN (10 dígitos)" maxlength="10" pattern="[0-9]*" inputmode="numeric" autocomplete="off"
     style="width:100%;padding:14px;background:#1a1a1a;border:1px solid #333;border-radius:10px;color:#fff;font-size:16px;font-weight:700;text-align:center;letter-spacing:8px;margin-bottom:12px;box-sizing:border-box;outline:none;transition:border-color 0.2s;"
     onkeypress="if(event.key==='Enter') admVerifyPin()" onfocus="this.style.borderColor='#f59e0b'" onblur="this.style.borderColor='#333'"/>
   <button onclick="admVerifyPin()" style="width:100%;padding:14px;background:#f59e0b;color:#000;font-weight:800;font-size:14px;border:none;border-radius:10px;cursor:pointer;transition:all 0.2s;text-transform:uppercase;letter-spacing:0.5px;">Verificar PIN</button>
