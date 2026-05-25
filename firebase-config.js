@@ -1,6 +1,5 @@
 // Firebase Modular 10.7.1 — inicialización y wrappers de compatibilidad
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-import { initializeAppCheck, ReCaptchaEnterpriseProvider } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app-check.js';
 import {
  getFirestore, collection, doc,
  getDoc, getDocs, addDoc, updateDoc, deleteDoc, setDoc,
@@ -95,25 +94,6 @@ function _colCompat(rawDb, colPath) {
 
 try {
  const _app = initializeApp(_fbConfig);
-
- // ── App Check (reCAPTCHA Enterprise) ──────────────────────────────────
- // Activar Enforcement: Firebase Console → App Check → APIs → Firestore → Enforce
- try {
-   const _rcKey = window.__RECAPTCHA_SITE_KEY__ || null;
-   if (_rcKey) {
-     initializeAppCheck(_app, {
-       provider: new ReCaptchaEnterpriseProvider(_rcKey),
-       isTokenAutoRefreshEnabled: true,
-     });
-     console.log('[AppCheck] Activado con reCAPTCHA Enterprise');
-   } else {
-     console.warn('[AppCheck] window.__RECAPTCHA_SITE_KEY__ no definida.');
-   }
- } catch (_acErr) {
-   console.warn('[AppCheck] Error al inicializar:', _acErr.message);
- }
- // ──────────────────────────────────────────────────────────────────────
-
  const _rawDb = getFirestore(_app);
  // Exponer config para que window.CONFIG (zona-verificacion.js) no necesite duplicarla
  window._firebaseConfig = _fbConfig;
