@@ -1,5 +1,4 @@
 {
-  "buildCommand": "node build-env.js",
   "rewrites": [
     { "source": "/admin",  "destination": "/index.html" },
     { "source": "/admin/", "destination": "/index.html" },

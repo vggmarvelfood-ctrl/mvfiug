@@ -13,17 +13,14 @@ import {
  onAuthStateChanged, signOut
 } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
 
-// ── Config desde window.__FB_CONFIG__ (inyectado por el script inline en index.html)
-// Las claves reales nunca viven en este archivo — vienen del entorno de Vercel.
-// Fallback solo para que no rompa si algo falla al inyectar.
-const _fbConfig = window.__FB_CONFIG__ || {
-  apiKey:            '',
-  authDomain:        'marvel-food-fa570.firebaseapp.com',
-  projectId:         'marvel-food-fa570',
-  storageBucket:     'marvel-food-fa570.firebasestorage.app',
-  messagingSenderId: '',
-  appId:             '',
-  measurementId:     'G-Z7X80SVSX6',
+const _fbConfig = {
+ apiKey: "AIzaSyAeRlE9S5pnEUuhxRXoOX6lMX4Ryky0uSI",
+ authDomain: "marvel-food-fa570.firebaseapp.com",
+ projectId: "marvel-food-fa570",
+ storageBucket: "marvel-food-fa570.firebasestorage.app",
+ messagingSenderId: "351263580699",
+ appId: "1:351263580699:web:9ba99708a021e5eabecebe",
+ measurementId: "G-Z7X80SVSX6"
 };
 
 // Parchear DocumentSnapshot para que .exists sea una PROPIEDAD (igual que compat)
@@ -99,12 +96,8 @@ function _colCompat(rawDb, colPath) {
 try {
  const _app = initializeApp(_fbConfig);
 
- // ── App Check con reCAPTCHA v3 ────────────────────────────────────────
- // window.__RECAPTCHA_SITE_KEY__ lo inyecta el script inline en index.html.
- // Para activar: Firebase Console → App Check → Apps → registrar app →
- //   elegir reCAPTCHA v3 → pegar el Site Key → luego Enforce en Firestore y Auth.
- // En localhost: agregá FIREBASE_APPCHECK_DEBUG_TOKEN=true en .env.local y
- //   registrá el debug token que aparece en la consola en App Check → Debug tokens.
+ // ── App Check (reCAPTCHA Enterprise) ──────────────────────────────────
+ // Activar Enforcement: Firebase Console → App Check → APIs → Firestore → Enforce
  try {
    const _rcKey = window.__RECAPTCHA_SITE_KEY__ || null;
    if (_rcKey) {
@@ -112,14 +105,14 @@ try {
        provider: new ReCaptchaEnterpriseProvider(_rcKey),
        isTokenAutoRefreshEnabled: true,
      });
-     console.log('[AppCheck] Activado con reCAPTCHA v3');
+     console.log('[AppCheck] Activado con reCAPTCHA Enterprise');
    } else {
-     console.warn('[AppCheck] __RECAPTCHA_SITE_KEY__ no definida — App Check desactivado.');
+     console.warn('[AppCheck] window.__RECAPTCHA_SITE_KEY__ no definida.');
    }
  } catch (_acErr) {
    console.warn('[AppCheck] Error al inicializar:', _acErr.message);
  }
- // ─────────────────────────────────────────────────────────────────────
+ // ──────────────────────────────────────────────────────────────────────
 
  const _rawDb = getFirestore(_app);
  // Exponer config para que window.CONFIG (zona-verificacion.js) no necesite duplicarla
