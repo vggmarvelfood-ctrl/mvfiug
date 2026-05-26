@@ -2722,19 +2722,29 @@ async function registrarVentaStats(items, total, sucursalId) {
 
 // Abrir/cerrar panel admin 
 function abrirAdmin() {
- const root = document.getElementById('admin-root');
- if (root) {
- root.classList.add('visible');
- root.style.display = 'block';
- }
- const heroSection = document.querySelector('.hero-slider');
- const menuSection = document.getElementById('menu-container');
- const bottomNav = document.querySelector('.bottom-nav');
- if (heroSection) heroSection.style.display = 'none';
- if (menuSection) menuSection.style.display = 'none';
- if (bottomNav) bottomNav.style.display = 'none';
- document.title = 'Marvel Food | Admin';
- console.log('Panel de admin abierto');
+  // CODE-SPLITTING: cargar Leaflet + adm-pin-system solo la primera vez que
+  // se abre el panel admin. Para clientes regulares nunca se descargan (~180 KB).
+  const _show = () => {
+    const root = document.getElementById('admin-root');
+    if (root) {
+      root.classList.add('visible');
+      root.style.display = 'block';
+    }
+    const heroSection = document.querySelector('.hero-slider');
+    const menuSection = document.getElementById('menu-container');
+    const bottomNav   = document.querySelector('.bottom-nav');
+    if (heroSection) heroSection.style.display = 'none';
+    if (menuSection) menuSection.style.display = 'none';
+    if (bottomNav)   bottomNav.style.display   = 'none';
+    document.title = 'Marvel Food | Admin';
+    console.log('[Admin] Panel abierto');
+  };
+
+  if (typeof window._loadAdminAssets === 'function') {
+    window._loadAdminAssets().then(_show);
+  } else {
+    _show();
+  }
 }
 
 function cerrarAdmin() {
