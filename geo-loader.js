@@ -6,10 +6,10 @@ window._loadGeoLibs = function() {
     var loaded = 0;
     var needed = 2;
     function check() { if (++loaded >= needed) { window._libsLoaded = true; resolve(); } }
-    // Turf.js v6
+    // Turf.js v7 — reemplaza v6 que usaba eval() y violaba la CSP (unsafe-eval)
     if (typeof turf === 'undefined') {
       var ts = document.createElement('script');
-      ts.src = 'https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js';
+      ts.src = 'https://cdn.jsdelivr.net/npm/@turf/turf@7/turf.min.js';
       ts.onload = check; ts.onerror = check;
       document.head.appendChild(ts);
     } else { check(); }
