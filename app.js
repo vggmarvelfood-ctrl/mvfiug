@@ -1131,6 +1131,11 @@ window.procesarPedido = async () => {
  gps: (typeof coordenadasGPS !== 'undefined' && coordenadasGPS) || 'No provisto',
  piso: isDelivery ? `${document.getElementById('c-piso').value} ${document.getElementById('c-depto').value}` : '',
  obs: '',                               // FIX: campo presente desde el inicio (editable desde admin)
+ // FIX SEGURIDAD: guardar uid para permitir lectura restringida por usuario.
+ // null para pedidos de clientes anónimos (sin login).
+ uid: (window.firebase && firebase.auth && firebase.auth().currentUser)
+   ? firebase.auth().currentUser.uid
+   : null,
  // FIX: mapeo explícito — elimina campo 'img' (~80 chars/ítem innecesarios en Firestore)
  // y garantiza que nunca lleguen campos undefined/circulares al documento.
  items: carrito.map(i => ({
@@ -1155,6 +1160,9 @@ window.procesarPedido = async () => {
  pago,
  vuelto: (pago === 'Efectivo' && vuelto > 0) ? vuelto : 0,
  estado: "Pendiente", 
+ // FIX SEGURIDAD: ts usa serverTimestamp() — la regla ahora valida "d.ts is timestamp"
+ // en vez de "d.ts == request.time" que rechazaba pedidos con latencia de red alta.
+ ts: firebase.firestore.FieldValue.serverTimestamp(),
  fecha: firebase.firestore.FieldValue.serverTimestamp(),
  fechaISO: new Date().toISOString()    // FIX: string legible para exports/webhooks sin .toDate()
  };
