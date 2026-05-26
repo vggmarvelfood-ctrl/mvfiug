@@ -277,19 +277,21 @@
   //  INICIALIZACIÓN
   // ═══════════════════════════════════════════════════════════════════
   async function inicializar() {
-    // Intentar cargar hash para poder verificar token existente
-    // (solo si ya hay sesión Google activa — cargarPinHash es seguro llamarlo acá
-    //  porque si falla simplemente deja pinHashFromFirestore en null)
-    if (window.db) await cargarPinHash();
+    // NO llamar cargarPinHash() aquí — el usuario aún no está autenticado
+    // con Google, por lo que Firestore rechaza la lectura con "insufficient permissions".
+    // cargarPinHash() se llama desde patchGoogleLogin(), DESPUÉS del login Google.
 
-    if (pinHashFromFirestore && await tokenValido()) {
-      console.log('[PIN] Token firmado válido detectado en sesión');
-      return;
+    // Si hay un token en sesión, verificarlo solo con lo que tenemos en memoria.
+    // pinHashFromFirestore es null acá, así que tokenValido() devuelve false
+    // correctamente — no intentamos nada con Firestore sin auth.
+    const tokEnSesion = sessionStorage.getItem(TOKEN_KEY);
+    if (tokEnSesion) {
+      // Hay un token guardado: patchGoogleLogin igual para que si ya
+      // está logueado y el token vence, el flujo funcione.
+      console.log('[PIN] Token en sesión detectado — se verificará tras cargar el hash');
+    } else {
+      sessionStorage.removeItem('_mfa_ok');
     }
-
-    // Limpiar cualquier token inválido o expirado
-    sessionStorage.removeItem(TOKEN_KEY);
-    sessionStorage.removeItem('_mfa_ok');
 
     function _init() {
       patchGoogleLogin();
