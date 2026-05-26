@@ -2,22 +2,15 @@
 let cuponAplicado = null;
 let codigoInternoAplicado = null; // { nombre, tipo:'interno'|'promo', descuento:100|pct|0 }
 
-// 
-// CODIGOS DE DESCUENTO — base hardcoded + override en Firebase
-// 
-const CODIGOS_INTERNOS_BASE = {
- // Uso interno personal — 100% descuento en productos (envío se mantiene)
- "LUCAS-LEYRIA": { nombre: "Lucas Leyria", tipo: "interno", descPct: 100, activo: false },
- "LUCIO-LEYRIA": { nombre: "Lucio Leyria", tipo: "interno", descPct: 100, activo: false },
- "ROMAN-ANFFOSI": { nombre: "Roman Anffosi", tipo: "interno", descPct: 100, activo: false },
- "LUCAS-BERTON": { nombre: "Lucas Berton", tipo: "interno", descPct: 100, activo: false },
- "SEIDY-LOPEZ": { nombre: "Seidy Lopez", tipo: "interno", descPct: 100, activo: false },
-};
-const CODIGOS_PROMO_BASE = {
- // Codigos promocionales configurables
- "EFECTV10": { titulo: "10% OFF en Efectivo", tipo: "promo_pct", descPct: 10, soloEfectivo: true, activo: false },
-};
-// Se mergeará con overrides de Firebase al cargar
+// ═══════════════════════════════════════════════════════════════════
+//  CODIGOS DE DESCUENTO — Solo desde Firebase (colección config_menu)
+//  NO hay base hardcodeada en el frontend. Todos los códigos internos
+//  y promocionales se gestionan exclusivamente desde el panel admin.
+//  Estructura en Firestore (config_menu → codigos_descuento):
+//    _master_activo: bool
+//    internos: { "COD": { nombre, descPct, activo } }
+//    promos:   { "COD": { titulo, descPct, soloEfectivo, activo } }
+// ═══════════════════════════════════════════════════════════════════
 window._codDescOverrides = {};
 
 window._codDescMasterActivo = false; // default OFF
@@ -69,18 +62,11 @@ window.admToggleMasterCodigos = async (nuevoEstado) => {
 };
 
 function resolverCodigos() {
+ // Todos los códigos vienen exclusivamente de Firebase (window._codDescOverrides).
+ // No existe base hardcodeada — el admin gestiona todo desde el panel.
  const ov = window._codDescOverrides || {};
- const internos = { ...CODIGOS_INTERNOS_BASE };
- const promos = { ...CODIGOS_PROMO_BASE };
- // Apply overrides
- if (ov.internos) Object.entries(ov.internos).forEach(([k,v]) => {
- if (internos[k]) internos[k] = { ...internos[k], ...v };
- else internos[k] = v; // new entry added from admin
- });
- if (ov.promos) Object.entries(ov.promos).forEach(([k,v]) => {
- if (promos[k]) promos[k] = { ...promos[k], ...v };
- else promos[k] = v;
- });
+ const internos = ov.internos ? { ...ov.internos } : {};
+ const promos   = ov.promos   ? { ...ov.promos }   : {};
  return { internos, promos };
 }
 
@@ -4590,13 +4576,12 @@ async function admCargarCodigos() {
  ? 'Activo — los clientes pueden ingresar un código en el checkout'
  : 'Desactivado — el campo de código no aparece para los clientes';
 
- const internos = { ...CODIGOS_INTERNOS_BASE };
- const promos = { ...CODIGOS_PROMO_BASE };
  // Migrar posibles claves erróneas 'interno'/'promo' (bug anterior) hacia 'internos'/'promos'
  if (ov.interno && !ov.internos) ov.internos = ov.interno;
  if (ov.promo && !ov.promos) ov.promos = ov.promo;
- if (ov.internos) Object.entries(ov.internos).forEach(([k,v]) => { internos[k] = internos[k] ? {...internos[k],...v} : v; });
- if (ov.promos) Object.entries(ov.promos).forEach(([k,v]) => { promos[k] = promos[k] ? {...promos[k],...v} : v; });
+ // Solo datos de Firebase — sin base hardcodeada
+ const internos = ov.internos ? { ...ov.internos } : {};
+ const promos   = ov.promos   ? { ...ov.promos }   : {};
 
  // Render internos + totales consumidos
  const pedHoy = admPedidos || [];
