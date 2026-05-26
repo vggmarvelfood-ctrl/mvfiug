@@ -754,6 +754,20 @@ window.gfToggleHeatmap = async function() {
  gfFeedback('Cargando pedidos completados...', 'info');
 
  try {
+ // Patch Canvas2D willReadFrequently — silencia la advertencia de performance
+ // que lanza leaflet-heat al llamar getImageData() repetidamente sin el flag.
+ // Se aplica una sola vez antes de cargar la librería.
+ if (!HTMLCanvasElement.prototype._gfPatched) {
+   const _origGetContext = HTMLCanvasElement.prototype.getContext;
+   HTMLCanvasElement.prototype.getContext = function(type, attrs) {
+     if (type === '2d') {
+       attrs = Object.assign({ willReadFrequently: true }, attrs || {});
+     }
+     return _origGetContext.call(this, type, attrs);
+   };
+   HTMLCanvasElement.prototype._gfPatched = true;
+ }
+
  // Cargar Leaflet.heat dinamicamente si no esta
  if (!window.L.heatLayer) {
  await new Promise((res, rej) => {
