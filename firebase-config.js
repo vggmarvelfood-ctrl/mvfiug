@@ -9,7 +9,8 @@ import {
 } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
 import {
  getAuth, signInWithPopup, GoogleAuthProvider,
- onAuthStateChanged, signOut
+ onAuthStateChanged, signOut,
+ signInAnonymously                       // AUTH ANÓNIMO — uid sin pedirle nada al usuario
 } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
 
 const _fbConfig = {
@@ -417,6 +418,10 @@ try {
   if (typeof admFechaHoy === 'function') admFechaHoy();
   if (typeof admIniciar === 'function') admIniciar();
   else if (typeof admInit === 'function') admInit();
+  // Archivar pedidos viejos silenciosamente al abrir el panel
+  setTimeout(() => {
+    if (typeof window.admArchivarViejos === 'function') window.admArchivarViejos(true);
+  }, 2000);
   setTimeout(() => {
    const firstTab = document.querySelector('.adm-tab');
    if (typeof admSwitchTab === 'function' && firstTab) admSwitchTab('pedidos', firstTab);
@@ -486,6 +491,22 @@ try {
  // Exponer auth y funciones al scope global
  window._firebaseAuth = _auth;
  window._verificarRol = _verificarRolConClaims;
+
+ // ── AUTH ANÓNIMO PARA CLIENTES ──────────────────────────────────────────
+ // Garantiza un uid antes de crear el pedido sin pedirle nada al usuario.
+ // Reutiliza la sesión activa (Google admin o anon previa) si ya existe.
+ window._ensureAnonAuth = async function() {
+   try {
+     const current = _auth.currentUser;
+     if (current) return current;
+     const cred = await signInAnonymously(_auth);
+     console.log('[Auth] Sesión anónima creada. UID:', cred.user.uid);
+     return cred.user;
+   } catch(e) {
+     console.warn('[Auth] _ensureAnonAuth falló, pedido sin uid:', e.message);
+     return null;
+   }
+ };
 
  // Ejecutar RouteGuard al cargar
  if (document.readyState === 'loading') {
