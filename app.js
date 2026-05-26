@@ -1131,10 +1131,10 @@ window.procesarPedido = async () => {
  gps: (typeof coordenadasGPS !== 'undefined' && coordenadasGPS) || 'No provisto',
  piso: isDelivery ? `${document.getElementById('c-piso').value} ${document.getElementById('c-depto').value}` : '',
  obs: '',                               // FIX: campo presente desde el inicio (editable desde admin)
- // FIX SEGURIDAD: guardar uid para permitir lectura restringida por usuario.
- // null para pedidos de clientes anónimos (sin login).
- uid: (window.firebase && firebase.auth && firebase.auth().currentUser)
-   ? firebase.auth().currentUser.uid
+ // uid: se sobreescribe justo antes del .add() con _ensureAnonAuth().
+ // Valor provisional null por si la función todavía no está disponible.
+ uid: (window._firebaseAuth && window._firebaseAuth.currentUser)
+   ? window._firebaseAuth.currentUser.uid
    : null,
  // FIX: mapeo explícito — elimina campo 'img' (~80 chars/ítem innecesarios en Firestore)
  // y garantiza que nunca lleguen campos undefined/circulares al documento.
@@ -1169,6 +1169,16 @@ window.procesarPedido = async () => {
 
  try {
  document.body.style.cursor = 'wait'; 
+
+ // AUTH ANÓNIMO: asegurar uid antes de escribir en Firestore.
+ // Crea sesión anónima si no hay ninguna activa; reutiliza la existente si la hay.
+ // La regla de Firestore valida  resource.data.uid == request.auth.uid
+ if (typeof window._ensureAnonAuth === 'function') {
+   try {
+     const _anonUser = await window._ensureAnonAuth();
+     if (_anonUser) ordenDatos.uid = _anonUser.uid;
+   } catch(_) {}
+ }
 
  // FIX: Ya no usamos JSON.parse/JSON.stringify porque pierde serverTimestamp()
  // y el mapeo explícito de items en ordenDatos ya garantiza datos limpios.
@@ -3173,6 +3183,69 @@ async function admLimpiarDia() {
  alert(`OK: ${lista.length} pedido${lista.length !== 1 ? 's' : ''} eliminado${lista.length !== 1 ? 's' : ''}.`);
  } catch (e) { alert("Error: " + e.message); }
 }
+
+// ARCHIVADO AUTOMÁTICO DE PEDIDOS VIEJOS ────────────────────────────────────
+// Se ejecuta silenciosamente cada vez que el admin abre el panel.
+// Mueve a `pedidos_archivo` los pedidos Entregado/Cancelado con más de
+// DIAS_RETENTION días. Usa batches de 400 para respetar el límite de Firestore.
+(function _registrarArchivarViejos() {
+  const DIAS_RETENTION   = 7;
+  const ESTADOS_FINALES  = ['Entregado', 'Cancelado'];
+  const BATCH_MAX        = 400;
+  let _archivandoEnCurso = false;
+
+  window.admArchivarViejos = async function(silencioso) {
+    if (!window.db || _archivandoEnCurso) return;
+    _archivandoEnCurso = true;
+
+    const corte = new Date(Date.now() - DIAS_RETENTION * 864e5); // hace N días
+    let totalMovidos = 0;
+
+    try {
+      for (const estado of ESTADOS_FINALES) {
+        // Query: estado final + fecha anterior al corte
+        const snap = await db.collection('pedidos_v2')
+          .where('estado', '==', estado)
+          .where('fecha', '<', corte)
+          .limit(BATCH_MAX)
+          .get();
+
+        if (snap.empty) continue;
+
+        const batch = db.batch();
+        snap.forEach(docSnap => {
+          // Copiar a pedidos_archivo con metadata de archivado
+          const datos = docSnap.data();
+          const dstRef = db.collection('pedidos_archivo').doc(docSnap.id);
+          batch.set(dstRef, {
+            ...datos,
+            _archivedAt:   firebase.firestore.FieldValue.serverTimestamp(),
+            _archivedFrom: 'pedidos_v2',
+          });
+          // Borrar del origen
+          batch.delete(db.collection('pedidos_v2').doc(docSnap.id));
+        });
+
+        await batch.commit();
+        totalMovidos += snap.size;
+        console.log(`[Archivado] ${snap.size} pedidos "${estado}" archivados.`);
+      }
+
+      if (totalMovidos > 0 && !silencioso) {
+        const t = document.getElementById('toast');
+        if (t) {
+          t.innerText = `🗂 ${totalMovidos} pedido(s) viejos archivados automáticamente.`;
+          t.classList.add('show');
+          setTimeout(() => t.classList.remove('show'), 4000);
+        }
+      }
+    } catch(e) {
+      console.warn('[Archivado] Error al archivar pedidos:', e.message);
+    } finally {
+      _archivandoEnCurso = false;
+    }
+  };
+})();
 
 // MOVER SUCURSAL 
 async function admMover(id) {
