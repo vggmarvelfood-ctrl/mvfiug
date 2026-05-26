@@ -1172,12 +1172,34 @@ window.procesarPedido = async () => {
 
  // AUTH ANÓNIMO: asegurar uid antes de escribir en Firestore.
  // Crea sesión anónima si no hay ninguna activa; reutiliza la existente si la hay.
- // La regla de Firestore valida  resource.data.uid == request.auth.uid
+ // La regla de Firestore valida d.uid == request.auth.uid — sin uid el create es rechazado.
  if (typeof window._ensureAnonAuth === 'function') {
+   let _anonUser = null;
+   let _anonError = null;
    try {
-     const _anonUser = await window._ensureAnonAuth();
-     if (_anonUser) ordenDatos.uid = _anonUser.uid;
-   } catch(_) {}
+     _anonUser = await window._ensureAnonAuth();
+   } catch(e) {
+     _anonError = e;
+   }
+
+   if (_anonUser) {
+     ordenDatos.uid = _anonUser.uid;
+   } else {
+     // Sin uid Firebase rechazaría el create (regla d.uid == request.auth.uid).
+     // Mostramos toast accionable y abortamos — el carrito no se toca.
+     document.body.style.cursor = 'default';
+     console.warn('[Auth] _ensureAnonAuth sin resultado:', _anonError?.message || 'null');
+
+     const _toastEl = document.getElementById('toast');
+     if (_toastEl) {
+       _toastEl.innerText = '\u26a0\ufe0f Error de conexión. Revisá tu red y volvé a intentar.';
+       _toastEl.classList.add('show');
+       setTimeout(() => _toastEl.classList.remove('show'), 5000);
+     } else {
+       alert('\u26a0\ufe0f Error de conexión. Revisá tu red y volvé a intentar.');
+     }
+     return; // ← aborta antes del .add(); el carrito queda intacto
+   }
  }
 
  // FIX: Ya no usamos JSON.parse/JSON.stringify porque pierde serverTimestamp()
