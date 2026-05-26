@@ -2,7 +2,7 @@
   "rewrites": [
     { "source": "/admin",  "destination": "/index.html" },
     { "source": "/admin/", "destination": "/index.html" },
-    { "source": "/((?!_vercel|icon-192\\.png|icon-512\\.png|manifest\\.json|sw\\.js|sw-pwa\\.js|.*\\.js|.*\\.css|.*\\.json|.*\\.png|.*\\.jpg|.*\\.webp|.*\\.geojson).*)", "destination": "/index.html" }
+    { "source": "/((?!api|_vercel|icon-192\\.png|icon-512\\.png|manifest\\.json|sw\\.js|sw-pwa\\.js|.*\\.js|.*\\.css|.*\\.json|.*\\.png|.*\\.jpg|.*\\.webp|.*\\.geojson).*)", "destination": "/index.html" }
   ],
   "headers": [
     {
@@ -11,35 +11,6 @@
         {
           "key": "Cross-Origin-Opener-Policy",
           "value": "unsafe-none"
-        },
-        {
-          "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com https://www.gstatic.com https://www.googletagmanager.com https://cdn.emailjs.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://i.ibb.co https://firebasestorage.googleapis.com; connect-src 'self' https://firestore.googleapis.com https://firebase.googleapis.com https://identitytoolkit.googleapis.com https://fcmregistrations.googleapis.com https://www.googleapis.com https://api.emailjs.com https://nominatim.openstreetmap.org https://photon.komoot.io https://api.mercadopago.com; frame-src 'none'; object-src 'none'; base-uri 'self';"
-        },
-        {
-          "key": "X-Frame-Options",
-          "value": "DENY"
-        },
-        {
-          "key": "X-Content-Type-Options",
-          "value": "nosniff"
-        },
-        {
-          "key": "Referrer-Policy",
-          "value": "strict-origin-when-cross-origin"
-        }
-      ]
-    },
-    {
-      "source": "/sw.js",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-cache, no-store, must-revalidate"
-        },
-        {
-          "key": "Service-Worker-Allowed",
-          "value": "/"
         }
       ]
     }

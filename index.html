@@ -62,16 +62,7 @@
   <!-- Leaflet JS (diferido) -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer crossorigin=""></script>
 
-  <!-- Turf.js v7 ESM — no usa eval(), compatible con CSP estricta.
-       El bundle UMD (v6 y v7) usa eval() y viola la directiva unsafe-eval.
-       Al cargarlo como módulo ESM se evita ese problema.
-       window.turf queda disponible globalmente para geo-fencing.js y zona-verificacion.js -->
-  <script type="module">
-    import * as turf from 'https://cdn.jsdelivr.net/npm/@turf/turf@7/+esm';
-    window.turf = turf;
-  </script>
-
-  <!-- geo-loader: carga lazy de toGeoJSON (Turf ya se carga arriba como ESM) -->
+  <!-- Carga lazy de Turf y toGeoJSON -->
   <script src="./geo-loader.js"></script>
 
   <!-- MEJORA: Resource hints para imágenes de menú (próxima generación) -->

@@ -1,19 +1,11 @@
 // ============================================================
-//  Marvel Food — Service Worker
-//  Versión: auto-gestionada via deploy query param (?deploy=ID)
-//  sw-pwa.js inyecta el VERCEL_DEPLOYMENT_ID como query string,
-//  por lo que cada deploy genera un SW distinto sin cambiar este archivo.
+//  Marvel Food — Service Worker v10
+//  Cambios respecto a v9:
+//  - Versión bumpeada para forzar actualización de caché
 // ============================================================
 
-// Extraer el deployId del propio script URL para versionar los caches
-const _swDeployId = (() => {
-  try {
-    return new URL(self.location.href).searchParams.get('deploy') || 'v10';
-  } catch(_) { return 'v10'; }
-})();
-
-const CACHE_NAME   = 'marvel-food-' + _swDeployId;
-const IMG_CACHE    = 'marvel-food-img-' + _swDeployId;
+const CACHE_NAME   = 'marvel-food-v10';
+const IMG_CACHE    = 'marvel-food-img-v10';
 
 // Activos del shell de la app (siempre disponibles offline)
 const SHELL_ASSETS = [

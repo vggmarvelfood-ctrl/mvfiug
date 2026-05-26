@@ -169,15 +169,11 @@ window.pwaDismissBanner = () => {
 })();
 
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    // deployId basado en día — cambia cada 24h forzando actualización del SW.
-    // No depende de /api/build-info (endpoint eliminado para simplificar el deploy).
-    const deployId = String(Math.floor(Date.now() / 86400000));
-
-    navigator.serviceWorker.register('./sw.js?deploy=' + deployId)
-      .then(r => console.log('[SW] Registrado. Scope:', r.scope, '| deploy:', deployId))
-      .catch(e => console.warn('[SW] Error:', e));
-  });
+ window.addEventListener('load', () => {
+ navigator.serviceWorker.register('./sw.js?v=10')
+ .then(r => console.log('[SW] Registrado. Scope:', r.scope))
+ .catch(e => console.warn('[SW] Error:', e));
+ });
 }
 
 // Nav-cats: ocultar al bajar, mostrar al subir 

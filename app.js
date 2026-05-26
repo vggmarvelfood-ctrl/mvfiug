@@ -1167,39 +1167,8 @@ window.procesarPedido = async () => {
  // Solo hacemos una copia shallow para no mutar el objeto original.
  const _pedidoLimpio = { ...ordenDatos };
 
- // Enviar pedido via /api/pedido (aplica rate limiting server-side: 5 pedidos/IP cada 10 min).
- // Fallback directo a Firestore si el endpoint no está disponible (dev local sin API).
- let pedidoId;
- try {
-   const _apiResp = await fetch('/api/pedido', {
-     method: 'POST',
-     headers: { 'Content-Type': 'application/json' },
-     body: JSON.stringify({
-       ..._pedidoLimpio,
-       // serverTimestamp no es serializable — el endpoint lo agrega en el servidor
-       fecha: null,
-     }),
-     signal: AbortSignal.timeout(8000),
-   });
-   if (_apiResp.status === 429) {
-     const _rl = await _apiResp.json().catch(() => ({}));
-     const _wait = _rl.retryAfterSeconds ? ` Esperá ${_rl.retryAfterSeconds} segundos.` : '';
-     throw Object.assign(new Error('rate_limited'), { _userMsg: `Demasiados pedidos enviados.${_wait}` });
-   }
-   if (!_apiResp.ok) throw new Error('api_error_' + _apiResp.status);
-   const _apiData = await _apiResp.json();
-   pedidoId = _apiData.id;
- } catch (_apiErr) {
-   if (_apiErr._userMsg) throw Object.assign(_apiErr, { message: _apiErr._userMsg });
-   // Si el endpoint no existe (dev local) o hay error de red, escribir directo a Firestore
-   if (_apiErr.message && (_apiErr.message.includes('Failed to fetch') || _apiErr.message.includes('api_error_404') || _apiErr.message.includes('api_error_503'))) {
-     console.warn('[pedido] /api/pedido no disponible, fallback directo a Firestore:', _apiErr.message);
-     const _docRef = await db.collection("pedidos_v2").add(_pedidoLimpio);
-     pedidoId = _docRef.id;
-   } else {
-     throw _apiErr;
-   }
- }
+ const docRef = await db.collection("pedidos_v2").add(_pedidoLimpio);
+ const pedidoId = docRef.id;
 
 
  // Guardar pedidoId para seguimiento en tiempo real
@@ -2720,32 +2689,26 @@ function renderPedidoEnCurso() {
 
 // 6. ESTADÍSTICAS DE VENTAS 
 async function registrarVentaStats(items, total, sucursalId) {
-  // Las reglas de Firestore exigen request.auth != null para crear docs en stats_ventas,
-  // pero el flujo de pedido del cliente es anónimo. Solución: enviar stats via
-  // /api/stats-venta (Admin SDK server-side, que ignora las reglas de seguridad).
-  // Si el endpoint no está disponible (dev local sin Admin SDK), no bloquear el flujo.
-  try {
-    const hoy = new Date();
-    const key = `${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,'0')}-${String(hoy.getDate()).padStart(2,'0')}`;
-    const hora = hoy.getHours();
-    const payload = {
-      fecha: key,
-      hora,
-      total,
-      sucursalId,
-      items: items.map(i => ({ id: i.id, n: i.n, cant: i.cant, precio: i.totalItem })),
-      ts: Date.now(),
-    };
-    const r = await fetch('/api/stats-venta', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(5000),
-    });
-    if (!r.ok && r.status !== 404 && r.status !== 503) {
-      console.warn('[Stats] Error en /api/stats-venta:', r.status);
-    }
-  } catch(e) { console.warn('[Stats] No se registraron stats:', e.message); }
+ try {
+ const hoy = new Date();
+ const key = `${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,'0')}-${String(hoy.getDate()).padStart(2,'0')}`;
+ const hora = hoy.getHours();
+ // FIX: el doc del día es compartido por TODAS las sucursales.
+ // Antes se guardaba { sucursal: string } a nivel raíz y el último pedido
+ // pisaba el campo, mezclando datos de distintas sucursales.
+ // Ahora cada venta lleva su sucursalId dentro del objeto, sin campo raíz.
+ const ref = db.collection("stats_ventas").doc(key);
+ await ref.set({
+ fecha: key,
+ ventas: firebase.firestore.FieldValue.arrayUnion({
+ hora,
+ total,
+ sucursalId,                            // FIX: dentro del objeto, no a nivel raíz
+ items: items.map(i => ({ id: i.id, n: i.n, cant: i.cant, precio: i.totalItem })),
+ ts: Date.now()
+ })
+ }, { merge: true });
+ } catch(e) { console.warn("Stats:", e); }
 }
 
 
