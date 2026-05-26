@@ -169,17 +169,10 @@ window.pwaDismissBanner = () => {
 })();
 
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', async () => {
-    // Obtener el deployId del servidor para forzar actualización del SW en cada deploy.
-    // Si el fetch falla (offline, primer boot), usar timestamp del día como fallback.
-    let deployId = String(Math.floor(Date.now() / 86400000)); // cambia cada 24h
-    try {
-      const r = await fetch('/api/build-info', { cache: 'no-store' });
-      if (r.ok) {
-        const data = await r.json();
-        if (data && data.deployId) deployId = data.deployId;
-      }
-    } catch (_) { /* offline — usar fallback */ }
+  window.addEventListener('load', () => {
+    // deployId basado en día — cambia cada 24h forzando actualización del SW.
+    // No depende de /api/build-info (endpoint eliminado para simplificar el deploy).
+    const deployId = String(Math.floor(Date.now() / 86400000));
 
     navigator.serviceWorker.register('./sw.js?deploy=' + deployId)
       .then(r => console.log('[SW] Registrado. Scope:', r.scope, '| deploy:', deployId))
