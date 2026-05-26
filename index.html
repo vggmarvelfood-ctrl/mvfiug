@@ -57,10 +57,8 @@
   <!-- Estilos -->
   <link rel="stylesheet" href="./style.css">
 
-  <!-- Leaflet CSS (solo admin) -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" media="print" onload="this.media='all'" crossorigin>
-  <!-- Leaflet JS (diferido) -->
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer crossorigin=""></script>
+  <!-- Leaflet CSS y JS — cargados bajo demanda solo cuando se abre el panel admin.
+       Ver window._loadAdminAssets() en el bloque de code-splitting más abajo. -->
 
   <!-- Carga lazy de Turf y toGeoJSON -->
   <script src="./geo-loader.js"></script>
@@ -229,8 +227,88 @@
 
 </div>
 
-<!-- Sistema 2FA PIN para admin -->
-<script src="./adm-pin-system.js"></script>
+<!--
+  CODE-SPLITTING ADMIN
+  ════════════════════
+  adm-pin-system.js y Leaflet son exclusivos del panel de administración.
+  No tiene sentido descargarlos para todos los usuarios de la tienda.
+
+  _loadAdminAssets() se ejecuta solo cuando:
+    • La URL contiene /admin o #admin  (detección en DOMContentLoaded)
+    • abrirAdmin() es llamado manualmente desde app.js
+
+  Beneficio: ~180 KB menos en la carga inicial para clientes regulares
+  (Leaflet JS ~150 KB + Leaflet CSS ~15 KB + adm-pin-system.js ~15 KB).
+-->
+<script>
+(function() {
+  'use strict';
+
+  var _adminLoaded = false;
+  var _adminLoading = false;
+
+  window._loadAdminAssets = function() {
+    if (_adminLoaded || _adminLoading) return Promise.resolve();
+    _adminLoading = true;
+
+    return new Promise(function(resolve) {
+      var pending = 0;
+      function done() { if (--pending <= 0) { _adminLoaded = true; _adminLoading = false; resolve(); } }
+
+      // Leaflet CSS
+      if (!document.querySelector('link[href*="leaflet"]')) {
+        pending++;
+        var lc = document.createElement('link');
+        lc.rel = 'stylesheet';
+        lc.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+        lc.crossOrigin = '';
+        lc.onload = done; lc.onerror = done;
+        document.head.appendChild(lc);
+      }
+
+      // Leaflet JS
+      if (typeof window.L === 'undefined') {
+        pending++;
+        var lj = document.createElement('script');
+        lj.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+        lj.crossOrigin = '';
+        lj.onload = function() {
+          // adm-pin-system depende de Leaflet — lo cargamos en cascada
+          if (typeof window.admPinSystemInit === 'undefined') {
+            pending++;
+            var ps = document.createElement('script');
+            ps.src = './adm-pin-system.js';
+            ps.onload = done; ps.onerror = done;
+            document.head.appendChild(ps);
+          }
+          done();
+        };
+        lj.onerror = done;
+        document.head.appendChild(lj);
+      } else if (typeof window.admPinSystemInit === 'undefined') {
+        // Leaflet ya cargado (raro), cargar solo el pin system
+        pending++;
+        var ps2 = document.createElement('script');
+        ps2.src = './adm-pin-system.js';
+        ps2.onload = done; ps2.onerror = done;
+        document.head.appendChild(ps2);
+      }
+
+      // Si no había nada que cargar
+      if (pending === 0) { _adminLoaded = true; _adminLoading = false; resolve(); }
+    });
+  };
+
+  // Activar precarga si la URL ya apunta al admin
+  document.addEventListener('DOMContentLoaded', function() {
+    var isAdminRoute = window.location.hash === '#admin' ||
+                       window.location.pathname.replace(/\/$/, '').endsWith('/admin');
+    if (isAdminRoute) {
+      window._loadAdminAssets();
+    }
+  });
+})();
+</script>
 
 <!-- Lógica principal: carrito, pedidos, menú, cupones, opiniones -->
 <script src="./app.js"></script>
