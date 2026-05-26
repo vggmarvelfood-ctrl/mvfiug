@@ -3187,10 +3187,14 @@ async function admLimpiarDia() {
 // ARCHIVADO AUTOMÁTICO DE PEDIDOS VIEJOS ────────────────────────────────────
 // Se ejecuta silenciosamente cada vez que el admin abre el panel.
 // Mueve a `pedidos_archivo` los pedidos Entregado/Cancelado con más de
-// DIAS_RETENTION días. Usa batches de 400 para respetar el límite de Firestore.
+// DIAS_RETENTION días.
+//
+// NOTA: se consulta solo por `fecha` (índice simple ya existente) y se filtra
+// el estado en memoria. Esto evita el índice compuesto (estado + fecha) que
+// Firestore requeriría si se combinaran ambos .where() en la query.
 (function _registrarArchivarViejos() {
   const DIAS_RETENTION   = 7;
-  const ESTADOS_FINALES  = ['Entregado', 'Cancelado'];
+  const ESTADOS_FINALES  = new Set(['Entregado', 'Cancelado']);
   const BATCH_MAX        = 400;
   let _archivandoEnCurso = false;
 
@@ -3198,37 +3202,40 @@ async function admLimpiarDia() {
     if (!window.db || _archivandoEnCurso) return;
     _archivandoEnCurso = true;
 
-    const corte = new Date(Date.now() - DIAS_RETENTION * 864e5); // hace N días
+    const corte = new Date(Date.now() - DIAS_RETENTION * 864e5);
     let totalMovidos = 0;
 
     try {
-      for (const estado of ESTADOS_FINALES) {
-        // Query: estado final + fecha anterior al corte
-        const snap = await db.collection('pedidos_v2')
-          .where('estado', '==', estado)
-          .where('fecha', '<', corte)
-          .limit(BATCH_MAX)
-          .get();
+      // Un solo .where sobre `fecha` — usa el índice simple existente.
+      // El filtro por estado se aplica en JS para evitar índice compuesto.
+      const snap = await db.collection('pedidos_v2')
+        .where('fecha', '<', corte)
+        .limit(BATCH_MAX)
+        .get();
 
-        if (snap.empty) continue;
-
+      if (!snap.empty) {
         const batch = db.batch();
+        let enBatch = 0;
+
         snap.forEach(docSnap => {
-          // Copiar a pedidos_archivo con metadata de archivado
           const datos = docSnap.data();
+          if (!ESTADOS_FINALES.has(datos.estado)) return; // ignorar Pendiente/En camino/etc.
+
           const dstRef = db.collection('pedidos_archivo').doc(docSnap.id);
           batch.set(dstRef, {
             ...datos,
             _archivedAt:   firebase.firestore.FieldValue.serverTimestamp(),
             _archivedFrom: 'pedidos_v2',
           });
-          // Borrar del origen
           batch.delete(db.collection('pedidos_v2').doc(docSnap.id));
+          enBatch++;
         });
 
-        await batch.commit();
-        totalMovidos += snap.size;
-        console.log(`[Archivado] ${snap.size} pedidos "${estado}" archivados.`);
+        if (enBatch > 0) {
+          await batch.commit();
+          totalMovidos += enBatch;
+          console.log(`[Archivado] ${enBatch} pedidos archivados.`);
+        }
       }
 
       if (totalMovidos > 0 && !silencioso) {
