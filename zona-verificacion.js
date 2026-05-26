@@ -8,10 +8,14 @@ window.CONFIG = {
  // Fuente de verdad única: firebase-config.js (inicializa el SDK).
  // Si necesitás acceder al config: window._firebaseConfig (expuesto por firebase-config.js).
  firebase: null, // placeholder — no usar; el SDK ya está inicializado por firebase-config.js
+ // EmailJS: credenciales cargadas asincrónicamente desde /api/config
+ // (nunca hardcodeadas en el bundle del front-end).
+ // Leer siempre a través de window.CONFIG.emailjs.publicKey —
+ // el objeto se rellena automáticamente antes de que el carrito necesite enviar mails.
  emailjs: {
- publicKey: 'sATMMVYtIbZLT1tMD',
- serviceId: 'service_mf',
- templateId: 'template_mf'
+   publicKey:  '',
+   serviceId:  '',
+   templateId: ''
  },
  sucursales: {
  Centro: { id: 'Centro', nombre: 'Pellegrini', wsp: '5493415256090' },
@@ -397,4 +401,33 @@ async function verificarDireccion(direccion, localidadOverride) {
  }
  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', attach);
  else attach();
+})();
+
+// ══════════════════════════════════════════════════════════════════════
+//  LOADER ASÍNCRONO DE CONFIG (EmailJS desde /api/config)
+//  Se ejecuta una sola vez al cargar la página. Rellena window.CONFIG.emailjs
+//  antes de que el usuario abra el carrito por primera vez.
+// ══════════════════════════════════════════════════════════════════════
+(function _loadRemoteConfig() {
+  // Evitar doble carga si otro módulo ya lo hizo
+  if (window._appConfigLoaded) return;
+  window._appConfigLoaded = true;
+
+  fetch('/api/config', { cache: 'force-cache' })
+    .then(function(r) { return r.ok ? r.json() : Promise.reject(r.status); })
+    .then(function(data) {
+      if (data && data.emailjs) {
+        window.CONFIG.emailjs.publicKey  = data.emailjs.publicKey  || '';
+        window.CONFIG.emailjs.serviceId  = data.emailjs.serviceId  || '';
+        window.CONFIG.emailjs.templateId = data.emailjs.templateId || '';
+        // Si EmailJS ya estaba inicializado (carga lenta del carrito), re-inicializar
+        if (window.emailjs && data.emailjs.publicKey) {
+          window.emailjs.init({ publicKey: data.emailjs.publicKey });
+        }
+      }
+    })
+    .catch(function(err) {
+      console.warn('[CONFIG] No se pudo cargar /api/config:', err,
+        '→ Verificá que las env vars estén definidas en Vercel.');
+    });
 })();

@@ -169,11 +169,22 @@ window.pwaDismissBanner = () => {
 })();
 
 if ('serviceWorker' in navigator) {
- window.addEventListener('load', () => {
- navigator.serviceWorker.register('./sw.js?v=10')
- .then(r => console.log('[SW] Registrado. Scope:', r.scope))
- .catch(e => console.warn('[SW] Error:', e));
- });
+  window.addEventListener('load', async () => {
+    // Obtener el deployId del servidor para forzar actualización del SW en cada deploy.
+    // Si el fetch falla (offline, primer boot), usar timestamp del día como fallback.
+    let deployId = String(Math.floor(Date.now() / 86400000)); // cambia cada 24h
+    try {
+      const r = await fetch('/api/build-info', { cache: 'no-store' });
+      if (r.ok) {
+        const data = await r.json();
+        if (data && data.deployId) deployId = data.deployId;
+      }
+    } catch (_) { /* offline — usar fallback */ }
+
+    navigator.serviceWorker.register('./sw.js?deploy=' + deployId)
+      .then(r => console.log('[SW] Registrado. Scope:', r.scope, '| deploy:', deployId))
+      .catch(e => console.warn('[SW] Error:', e));
+  });
 }
 
 // Nav-cats: ocultar al bajar, mostrar al subir 
