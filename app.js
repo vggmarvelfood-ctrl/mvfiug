@@ -349,11 +349,11 @@ const EXTRAS_GLOBALES = [
 
 // NUEVO: Horarios por sucursal mapeados con los IDs (Centro = Pellegrini)
 const HORARIOS_SUCURSALES = {
- Centro: { m_start: "11:30", m_end: "16:00", n_start: "19:00", n_end: "23:30" },
- Norte: { m_start: "11:30", m_end: "16:00", n_start: "19:00", n_end: "23:30" },
- Sur: { m_start: "11:30", m_end: "15:00", n_start: "19:00", n_end: "23:00" },
- Funes: { m_start: "11:30", m_end: "16:00", n_start: "19:00", n_end: "23:00" },
- Cafferata: { m_start: "11:30", m_end: "16:00", n_start: "19:00", n_end: "23:00" }
+ Centro: { m_start: "11:30", m_end: "18:00", n_start: "19:00", n_end: "23:30" },
+ Norte: { m_start: "11:30", m_end: "18:00", n_start: "19:00", n_end: "23:30" },
+ Sur: { m_start: "11:30", m_end: "18:00", n_start: "19:00", n_end: "23:00" },
+ Funes: { m_start: "11:30", m_end: "18:00", n_start: "19:00", n_end: "23:00" },
+ Cafferata: { m_start: "11:30", m_end: "18:00", n_start: "19:00", n_end: "23:00" }
 };
 
 // NUEVO: Función para evaluar la hora real y renderizar el cartel
