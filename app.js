@@ -264,64 +264,6 @@ const ZONA_INFO_UI = {
  Cafferata: { label: "Cafferata",   direccion: "Cafferata y Urquiza, Rosario" }
 };
 
-
-// ═══════════════════════════════════════════════════════════════════
-//  MAPA ID WEB → CÓDIGO JARVIS
-//  Los IDs del MENU web NO coinciden con los códigos del sistema JARVIS.
-//  Este mapa es la fuente de verdad para la exportación al autocomplete.
-//  Se guarda como campo "jid" en cada item del pedido en Firestore.
-// ═══════════════════════════════════════════════════════════════════
-const JARVIS_ID_MAP = {
-  // Hamburguesas clásicas
-  1:  7,   // Black Panther       → JARVIS 7
-  2:  3,   // Capitán América     → JARVIS 3
-  3:  11,  // Capitana Marvel     → JARVIS 11
-  4:  8,   // Dr Strange          → JARVIS 8
-  5:  1,   // Hulk Burger         → JARVIS 1
-  6:  4,   // Iron Man            → JARVIS 4
-  7:  13,  // Loki                → JARVIS 13
-  8:  2,   // Natasha             → JARVIS 2
-  9:  5,   // Peter Parker        → JARVIS 5
-  10: 12,  // Thanos              → JARVIS 12
-  11: 16,  // Vision              → JARVIS 16
-  12: 15,  // Wanda               → JARVIS 15
-  13: 10,  // Wolverine           → JARVIS 10
-  // Hamburguesas Veggie
-  14: 60,  // Vegan Valkyria      → JARVIS 60
-  30: 27,  // Black Panther Veggie→ JARVIS 27
-  31: 23,  // Capitán América V.  → JARVIS 23
-  32: 31,  // Capitana Marvel V.  → JARVIS 31
-  33: 28,  // Dr Strange Veggie   → JARVIS 28
-  34: 21,  // Hulk Veggie         → JARVIS 21
-  35: 24,  // Iron Man Veggie     → JARVIS 24
-  36: 33,  // Loki Veggie         → JARVIS 33
-  37: 22,  // Natasha Veggie      → JARVIS 22
-  38: 25,  // Peter Parker Veggie → JARVIS 25
-  39: 36,  // Vision Veggie       → JARVIS 36
-  40: 35,  // Wanda Veggie        → JARVIS 35
-  // Hamburguesas Smash
-  15: 19,  // Big Marvel          → JARVIS 19
-  16: 17,  // Chis Burger         → JARVIS 17
-  17: 18,  // Perfekta Smash      → JARVIS 18
-  18: 20,  // Stacker             → JARVIS 20
-  // Acompañamientos y Extras
-  19: 67,  // Sándwich Libertad   → JARVIS 67
-  20: 208, // Nuggets x10         → JARVIS 208
-  21: 209, // Combo Nuggets       → JARVIS 209
-  22: 206, // Aros de cebolla     → JARVIS 206
-  23: 207, // Combo Aros          → JARVIS 207
-  24: 200, // Papas Chicas        → JARVIS 200
-  25: 201, // Papas Ch. Cheddar   → JARVIS 201
-  26: 203, // Papas Grandes       → JARVIS 203
-  27: 204, // Papas Gr. Cheddar   → JARVIS 204
-  28: 210, // Marvel Box          → JARVIS 210
-  // Ensaladas
-  29: 211, // Ensalada Kang       → JARVIS 211
-  // Extras globales (ya usan id string = codigo JARVIS directo)
-  '700': 700, '701': 701, '713': 713,
-  '710': 710, '711': 711, '300': 300,
-};
-
 const MENU = [
   {
     cat: "Hamburguesas",
@@ -1198,15 +1140,15 @@ window.procesarPedido = async () => {
  // y garantiza que nunca lleguen campos undefined/circulares al documento.
  items: carrito.map(i => ({
    id: i.id,
-   // jid = código JARVIS real (distinto del id web del menú)
-   jid: JARVIS_ID_MAP[i.id] || JARVIS_ID_MAP[String(i.id)] || null,
+   // FIX v20: jid = codigo JARVIS real (distinto del 'id' que es posicion en el menu).
+   // El autocomplete lo usa para cargar el producto correcto en JARVIS.
+   jid: _buscarCodigoJarvis(i.n),
    n: i.n,
    cant: i.cant,
    p: i.p,
    totalItem: i.totalItem,
    sin: Array.isArray(i.sin) ? i.sin : [],
-   con: Array.isArray(i.con) ? i.con.map(x => ({ id: x.id || '', n: x.n || '', p: x.p || 0,
-     jid: JARVIS_ID_MAP[x.id] || JARVIS_ID_MAP[String(x.id)] || null })) : [],
+   con: Array.isArray(i.con) ? i.con.map(x => ({ id: x.id || '', n: x.n || '', p: x.p || 0 })) : [],
    obs: i.obs || ''
  })),
  subtotal: sub,
@@ -3959,6 +3901,144 @@ document.addEventListener('DOMContentLoaded', function() {
  const m = document.getElementById('adm-modal-edit');
  if (m) m.addEventListener('click', function(e) { if (e.target === this) admCloseModal(); });
 });
+
+// MAPA DE CÓDIGOS OFICIALES (scope global — usado al guardar pedidos en Firestore)
+const _CODIGOS_JARVIS = {
+// Hamburguesas carne (códigos 1-20) 
+'HULK BURGER':1, 'HULK':1,
+'NATASHA':2,
+'CAPITAN AMERICA':3, 'CAPITÁN AMÉRICA':3,
+'IRON MAN':4,
+'PETER PARKER':5,
+'BLACK PANTHER':7,
+'DOCTOR STRANGE':8, 'DR STRANGE':8, 'DR. STRANGE':8,
+'WOLVERINE':10,
+'CAPITANA MARVEL':11,
+'THANOS':12,
+'LOKI':13,
+'WANDA':15,
+'VISION':16,
+// Smash (17-20) 
+'CHIS BURGER':17, 'CHISS BURGER':17,
+'PERFEKTA':18, 'PERFEKTA SMASH':18,
+'BIG MARVEL':19,
+'STACKER':20, 'STAKER BURGER':20, 'STACKER BURGER':20,
+// Veggie remolacha (21-40) 
+'HULK SIMPLE VEGE':21, 'HULK VEGGIE':21,
+'NATASHA VEGGIE':22, 'NATASHA VEGE':22,
+'CAPITAN AMERICA VEGGIE':23,'CAPITÁN AMÉRICA VEGGIE':23,'CAPITAN AMERICA VEGE':23,
+'IRON MAN VEGGIE':24, 'IRON MAN VEGE':24,
+'PETER PARKER VEGGIE':25, 'PETER PARKER VEGE':25,
+'BLACK PANTHER VEGGIE':27, 'BLACK PANTHER VEGE':27,
+'DOCTOR STRANGE S VEGE':28, 'DR STRANGE VEGGIE':28,
+'CAP MARVEL VEGE SIMPLE':31,'CAPITANA MARVEL VEGGIE':31,
+'LOKI VEGGIE':33, 'LOKI VEGE':33,
+'WANDA VEGGIE':35, 'WANDA VEGE':35,
+'VISION VEGGIE':36, 'VISION VEGGE':36,
+'STAKER VEGE':40,
+// Veggie choclo (41-61) 
+'HULK SIMPLE CHOCLO':41,
+'NATASHA CHOCLO':42,
+'CAPITAN AMERICA CHOCLO':43,
+'IRON MAN CHOCLO':44,
+'PETER PARKER CHOCLO':45,
+'BLACK PANTHER CHOCLO':47,
+'DOCTOR STRANGE S CHOCLO':48,
+'CAP MARVEL CHOCLO SIMPLE':51,
+'LOKI CHOCLO':53,
+'WANDA CHOCLO':55,
+'VISION CHOCLO':56,
+'VALKYRIA VEGAN':60, 'VEGAN VALKYRIA':60,
+'VALKYRIA CHOCLO':61,
+// Sándwiches / otros 
+'SÁNDWICH LIBERTAD':67, 'SANDWICH LIBERTAD':67, 'LIBERTAD':67,
+'MENU INFANTIL':70,
+// Papas (200-205) 
+'PAPAS CHICAS':200,
+'PAPAS CHICAS CON CHEDDAR':201, 'PAPA CHICA CHEDDAR':201,
+'PAPAS CHICAS COMPLETAS':202,
+'PAPAS GRANDES':203,
+'PAPAS CHEDDAR GRANDES':204, 'PAPA GRANDE CHEDDAR':204,
+'PAPAS GR COMPLETAS':205,
+// Acompañamientos (206-211) 
+'AROS DE CEBOLLA (10 UNIDADES)':206, 'AROS DE CEBOLLA 10':206,
+'COMBO AROS':207, 'COMBO AROS DE CEBOLLA':207,
+'NUGGETS (10 UNIDADES)':208,'NUGGETS X10':208,
+'COMBO NUGGETS':209,
+'MARVEL BOX':210,
+'ENSALADA KANG':211, 'ENSALADA KANG SALAD':211,
+// Bebidas (300-358) 
+'PEPSI LATA 360':300, 'PEPSI 500CC':301, 'PEPSI 1500CC':302,
+'PEPSI BLACK LATA 360':303, 'PEPSI BLACK 1500CC':304,
+'SEVEN UP LATA 360':305, 'SEVEN UP 500CC':306, 'SEVEN UP 1500CC':307,
+'MIRINDA LATA 360':308, 'MIRINDA 500CC':309, 'MIRINDA 1500CC':310,
+'PASO DLT LATA 360':311, 'PASO DLT 1500CC':312,
+'AWAFRUT NARANJA 500CC':313,'AWAFRUT MANZANA 500CC':314,'AWAFRUT POMELO 500CC':315,
+'AGUA 500CC':316, 'AGUA 1500CC':317,
+'STELLA 473CC':350, 'ANDES RUBIA 473CC':351,'ANDES ROJA 473CC':352,
+'ANDES IPA 473CC':353, 'QUILMES 473CC':354, 'BUDWEISER 473CC':355,
+'BRAHMA LATA':356, 'STELLA SIN ALCOHOL':358,
+// Extras (700-715) 
+'EXTRA CARNE':700, 'EXTRA MEDALLON':700,
+'EXTRA CHEDDAR':711, 'EXTRA CHEDDAR FETA':701,
+'EXTRA PANCETA':710,
+'EXTRA DIP VERDEO':710, 'EXTRA DIP CHEDDAR':711,
+'EXTRA DIP BARBACOA':712, 'EXTRA DIP PANCETA':713,
+'EXTRA CARNE SMASH':714,
+'EXTRA MEDALLÓN VEGGIE':715,'EXTRA MEDALLON VEGGIE':715,
+// Promos del día (403-440) 
+'PROMO LUNES CAPITÁN AMÉRICA':403, 'PROMO LUNES CAPITAN AMERICA':403, 'MARVEL LUNES CAP AMERICA':403,
+'PROMO MARTES PETER PARKER':405, 'MARVEL MARTES PETER':405,
+'PROMO MIÉRCOLES IRON MAN':404, 'MARVEL MIERC IRON':404,
+'PROMO JUEVES STACKER':420, 'MARVEL JUEVES STACKER':420,
+'PROMO VIERNES LOKI':413, 'MARVEL VIERNES LOKI':413,
+'PROMO SÁBADO BLACK PANTHER':407, 'MARVEL SAB BLACK P':407,
+'PROMO DOMINGO CHISBURGER':417, 'MARVEL DOM CHISS':417,
+// Promos compartir (501-525) 
+'COMPARTIR HULK':501, 'COMPARTI HULK':501,
+'COMPARTIR CAPITÁN AMÉRICA':503, 'COMPARTIR CAPITAN AMERICA':503, 'COMPARTI CAPITAN A':503,
+'COMPARTIR IRON MAN':504, 'COMPARTI IRON MAN':504,
+'COMPARTIR PETER PARKER':505, 'COMPARTI PETER PARKER':505,
+   // MEJORA 4 — Códigos agregados (Veggie Choclo completos + variantes faltantes)
+   // Veggie choclo variantes adicionales
+   'HULK CHOCLO':41, 'HULK VEGGIE CHOCLO':41,
+   'NATASHA VEGGIE CHOCLO':42,
+   'CAPITAN AMERICA VEGGIE CHOCLO':43, 'CAP AMERICA CHOCLO':43,
+   'IRON MAN VEGGIE CHOCLO':44,
+   'PETER PARKER VEGGIE CHOCLO':45,
+   'BLACK PANTHER VEGGIE CHOCLO':47, 'BLACK PANTHER CHOCLO':47,
+   'DOCTOR STRANGE CHOCLO':48, 'DR STRANGE CHOCLO':48,
+   'CAPITANA MARVEL CHOCLO':51, 'CAP MARVEL CHOCLO':51,
+   'LOKI VEGGIE CHOCLO':53,
+   'WANDA VEGGIE CHOCLO':55,
+   'VISION VEGGIE CHOCLO':56,
+   // Sándwiches y extras adicionales
+   'CHEESE BURGER':17, 'CHISBURGER':17, 'CHEESEBURGER':17,
+   'GALVEZ':67, 'SANDWICH GALVEZ':67,
+   'MENU KIDS':70, 'KIDS':70,
+   // Promos compartir adicionales
+   'COMPARTI IRON':504,
+   'COMPARTIR BLACK PANTHER':507, 'COMPARTI BLACK PANTHER':507,
+   'COMPARTIR LOKI':513, 'COMPARTI LOKI':513,
+   'COMPARTIR WANDA':515, 'COMPARTI WANDA':515,
+};
+
+// Busca código: primero exacto, luego el match MÁS LARGO (evita que "HULK" matchee "HULK VEGGIE")
+function _buscarCodigoJarvis(nombre) {
+const key = nombre.toUpperCase().trim();
+// 1. Coincidencia exacta
+if (_CODIGOS_JARVIS[key] !== undefined) return String(_CODIGOS_JARVIS[key]).padStart(5,'0');
+// 2. El nombre del producto CONTIENE alguna key — tomar la key más larga que haga match
+const keys = Object.keys(_CODIGOS_JARVIS).sort((a,b) => b.length - a.length);
+for (const k of keys) {
+if (key.includes(k)) return String(_CODIGOS_JARVIS[k]).padStart(5,'0');
+}
+// 3. Alguna key CONTIENE el nombre del producto
+for (const k of keys) {
+if (k.includes(key)) return String(_CODIGOS_JARVIS[k]).padStart(5,'0');
+}
+return '?????';
+}
 
 // IMPRIMIR 
 // IMPRIMIR 
