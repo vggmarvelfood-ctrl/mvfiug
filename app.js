@@ -264,6 +264,64 @@ const ZONA_INFO_UI = {
  Cafferata: { label: "Cafferata",   direccion: "Cafferata y Urquiza, Rosario" }
 };
 
+
+// ═══════════════════════════════════════════════════════════════════
+//  MAPA ID WEB → CÓDIGO JARVIS
+//  Los IDs del MENU web NO coinciden con los códigos del sistema JARVIS.
+//  Este mapa es la fuente de verdad para la exportación al autocomplete.
+//  Se guarda como campo "jid" en cada item del pedido en Firestore.
+// ═══════════════════════════════════════════════════════════════════
+const JARVIS_ID_MAP = {
+  // Hamburguesas clásicas
+  1:  7,   // Black Panther       → JARVIS 7
+  2:  3,   // Capitán América     → JARVIS 3
+  3:  11,  // Capitana Marvel     → JARVIS 11
+  4:  8,   // Dr Strange          → JARVIS 8
+  5:  1,   // Hulk Burger         → JARVIS 1
+  6:  4,   // Iron Man            → JARVIS 4
+  7:  13,  // Loki                → JARVIS 13
+  8:  2,   // Natasha             → JARVIS 2
+  9:  5,   // Peter Parker        → JARVIS 5
+  10: 12,  // Thanos              → JARVIS 12
+  11: 16,  // Vision              → JARVIS 16
+  12: 15,  // Wanda               → JARVIS 15
+  13: 10,  // Wolverine           → JARVIS 10
+  // Hamburguesas Veggie
+  14: 60,  // Vegan Valkyria      → JARVIS 60
+  30: 27,  // Black Panther Veggie→ JARVIS 27
+  31: 23,  // Capitán América V.  → JARVIS 23
+  32: 31,  // Capitana Marvel V.  → JARVIS 31
+  33: 28,  // Dr Strange Veggie   → JARVIS 28
+  34: 21,  // Hulk Veggie         → JARVIS 21
+  35: 24,  // Iron Man Veggie     → JARVIS 24
+  36: 33,  // Loki Veggie         → JARVIS 33
+  37: 22,  // Natasha Veggie      → JARVIS 22
+  38: 25,  // Peter Parker Veggie → JARVIS 25
+  39: 36,  // Vision Veggie       → JARVIS 36
+  40: 35,  // Wanda Veggie        → JARVIS 35
+  // Hamburguesas Smash
+  15: 19,  // Big Marvel          → JARVIS 19
+  16: 17,  // Chis Burger         → JARVIS 17
+  17: 18,  // Perfekta Smash      → JARVIS 18
+  18: 20,  // Stacker             → JARVIS 20
+  // Acompañamientos y Extras
+  19: 67,  // Sándwich Libertad   → JARVIS 67
+  20: 208, // Nuggets x10         → JARVIS 208
+  21: 209, // Combo Nuggets       → JARVIS 209
+  22: 206, // Aros de cebolla     → JARVIS 206
+  23: 207, // Combo Aros          → JARVIS 207
+  24: 200, // Papas Chicas        → JARVIS 200
+  25: 201, // Papas Ch. Cheddar   → JARVIS 201
+  26: 203, // Papas Grandes       → JARVIS 203
+  27: 204, // Papas Gr. Cheddar   → JARVIS 204
+  28: 210, // Marvel Box          → JARVIS 210
+  // Ensaladas
+  29: 211, // Ensalada Kang       → JARVIS 211
+  // Extras globales (ya usan id string = codigo JARVIS directo)
+  '700': 700, '701': 701, '713': 713,
+  '710': 710, '711': 711, '300': 300,
+};
+
 const MENU = [
   {
     cat: "Hamburguesas",
@@ -1140,12 +1198,15 @@ window.procesarPedido = async () => {
  // y garantiza que nunca lleguen campos undefined/circulares al documento.
  items: carrito.map(i => ({
    id: i.id,
+   // jid = código JARVIS real (distinto del id web del menú)
+   jid: JARVIS_ID_MAP[i.id] || JARVIS_ID_MAP[String(i.id)] || null,
    n: i.n,
    cant: i.cant,
    p: i.p,
    totalItem: i.totalItem,
    sin: Array.isArray(i.sin) ? i.sin : [],
-   con: Array.isArray(i.con) ? i.con.map(x => ({ id: x.id || '', n: x.n || '', p: x.p || 0 })) : [],
+   con: Array.isArray(i.con) ? i.con.map(x => ({ id: x.id || '', n: x.n || '', p: x.p || 0,
+     jid: JARVIS_ID_MAP[x.id] || JARVIS_ID_MAP[String(x.id)] || null })) : [],
    obs: i.obs || ''
  })),
  subtotal: sub,
@@ -3990,30 +4051,20 @@ function admImprimir(id) {
  'BRAHMA LATA':356, 'STELLA SIN ALCOHOL':358,
  // Extras (700-715) 
  'EXTRA CARNE':700, 'EXTRA MEDALLON':700,
- 'MEDALLON':700,
- 'EXTRA CHEDDAR FETA':701, 'EXTRA CHEDDAR':701,
- 'CHEDDAR FETA':701,
- 'EXTRA PANCETA':713,
- 'PANCETA':713,
+ 'EXTRA CHEDDAR':711, 'EXTRA CHEDDAR FETA':701,
+ 'EXTRA PANCETA':710,
  'EXTRA DIP VERDEO':710, 'EXTRA DIP CHEDDAR':711,
- 'VERDEO':710,
- 'CHEDDAR':711,
  'EXTRA DIP BARBACOA':712, 'EXTRA DIP PANCETA':713,
  'EXTRA CARNE SMASH':714,
  'EXTRA MEDALLÓN VEGGIE':715,'EXTRA MEDALLON VEGGIE':715,
  // Promos del día (403-440) 
  'PROMO LUNES CAPITÁN AMÉRICA':403, 'PROMO LUNES CAPITAN AMERICA':403, 'MARVEL LUNES CAP AMERICA':403,
-    'PROMO LUNES CAPITAN AMERICA + PAPAS CHICAS':403,
  'PROMO MARTES PETER PARKER':405, 'MARVEL MARTES PETER':405,
-    'PROMO MARTES PETER PARKER + PAPAS CHICAS':405,
  'PROMO MIÉRCOLES IRON MAN':404, 'MARVEL MIERC IRON':404,
  'PROMO JUEVES STACKER':420, 'MARVEL JUEVES STACKER':420,
-    'PROMO JUEVES STACKER + PAPAS CHICAS':420,
  'PROMO VIERNES LOKI':413, 'MARVEL VIERNES LOKI':413,
-    'PROMO VIERNES LOKI + PAPAS CHICAS':413,
  'PROMO SÁBADO BLACK PANTHER':407, 'MARVEL SAB BLACK P':407,
  'PROMO DOMINGO CHISBURGER':417, 'MARVEL DOM CHISS':417,
-    'PROMO DOMINGO CHISBURGER + PAPAS CHICAS':417,
  // Promos compartir (501-525) 
  'COMPARTIR HULK':501, 'COMPARTI HULK':501,
  'COMPARTIR CAPITÁN AMÉRICA':503, 'COMPARTIR CAPITAN AMERICA':503, 'COMPARTI CAPITAN A':503,
