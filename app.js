@@ -477,6 +477,11 @@ document.addEventListener('DOMContentLoaded', () => {
  if (typeof cargarMenuOverrides === 'function') cargarMenuOverrides();
  });
 
+ // Cargar config general (horarios, mensajes) desde Firestore
+ _esperarDB(function() {
+  if (typeof cargarConfigGeneral === 'function') cargarConfigGeneral();
+ });
+
  // Restaurar carrito persistente
  if (typeof restaurarCarrito === 'function') restaurarCarrito();
 
@@ -1356,6 +1361,10 @@ window.procesarPedido = async () => {
  if (detalleCupon && detalleCupon !== 'Ninguno') {
  t += `*Cupón aplicado:* ${detalleCupon}%0A`;
  }
+ // Código interno / promo
+ if (window.codigoInternoAplicado) {
+ t += `*Código:* ${window.codigoInternoAplicado.codigo} — ${window.codigoInternoAplicado.nombre}%0A`;
+ }
 
  t += `---------------------------%0A`;
 
@@ -1382,7 +1391,7 @@ window.procesarPedido = async () => {
  mostrarSucesoPedido('mercadopago', `https://wa.me/${SUC_MAP[sucId].wsp}?text=${t}`, total);
  } else {
  // Efectivo / Tarjeta → pantalla verde → WhatsApp
- mostrarSucesoPedido('whatsapp', `https://wa.me/${SUC_MAP[sucId].wsp}?text=${t}`, total);
+ mostrarSucesoPedido('whatsapp', SUC_MAP[sucId].wspOff ? null : `https://wa.me/${SUC_MAP[sucId].wsp}?text=${t}`, total);
  }
 
  } catch (e) {
@@ -1991,8 +2000,12 @@ function obtenerCuponDelDia() {
  if (bannerMartes) bannerMartes.classList.add('hidden');
  }
 
+ const _hoyStr = _hoyDate.toISOString().slice(0,10); // 'YYYY-MM-DD'
  const promosVisibles = PROMOS_DATA.filter(item => {
  if (item._oculta) return false;
+ // Validar rango de fechas si existe
+ if (item.fechaDesde && _hoyStr < item.fechaDesde) return false;
+ if (item.fechaHasta && _hoyStr > item.fechaHasta) return false;
  return item.diaVenta === null || item.diaVenta === undefined || item.diaVenta === hoy;
  });
 
@@ -3099,6 +3112,7 @@ function admRenderCard(p) {
  <div class="adm-irow"><span class="l">Dirección</span><span class="v">${p.dir || '—'} ${p.piso || ''}</span></div><div class="adm-irow"><span class="l">Localidad</span><span class="v">${p.loc || '—'}</span></div><div class="adm-irow"><span class="l">Franja horaria</span><span class="v" style="color:var(--primary)"> ${p.horarioEstimado || '—'}</span></div> ` : `
  <div class="adm-irow"><span class="l">Hora retiro</span><span class="v" style="color:var(--primary)"> ${p.horarioEstimado || '—'}</span></div> `}
  <div class="adm-irow"><span class="l">Pago</span><span class="v">${p.pago || '—'}</span></div> ${p.cuponUsado && p.cuponUsado !== 'Ninguno' ? `<div class="adm-irow"><span class="l">Cupón</span><span class="v" style="color:#10b981">${p.cuponUsado}</span></div>` : ''}
+ ${p.codigoInterno ? `<div class="adm-irow"><span class="l">Código</span><span class="v" style="color:#a78bfa;font-family:monospace;font-weight:800;">${p.codigoInterno.codigo} <span style="font-family:sans-serif;font-weight:400;color:#9ca3af;">— ${p.codigoInterno.nombre}</span></span></div>` : ''}
  ${p.gps && p.gps !== 'No provisto' ? `<div class="adm-irow"><span class="l">GPS</span><span class="v"><a href="http://maps.google.com/maps?q=${p.gps}" target="_blank" style="color:#3b82f6">Ver mapa</a></span></div>` : ''}
  ${p.obs ? `<div class="adm-irow"><span class="l">Obs.</span><span class="v">${p.obs}</span></div>` : ''}
 
@@ -3341,6 +3355,7 @@ async function _integNotificar(evento, pedido) {
  gps: pedido.gps || '',
  items: pedido.items || [],
  cupon: pedido.cuponUsado || 'Ninguno',
+ codigoInterno: pedido.codigoInterno || null,
  obs: pedido.obs || ''
  };
 
@@ -4256,6 +4271,7 @@ function admImprimir(id) {
  const totalesCliente = `
  <tr><td colspan="3" class="td-r"> Sub total :${(p.subtotal||0).toFixed(2)}</td></tr> ${esDel ? `<tr><td colspan="3" class="td-r"> Envío : ${(p.envio||0).toFixed(2)}</td></tr>` : ''}
  ${p.descuento ? `<tr><td colspan="3" class="td-r"> Descuento : -${Number(p.descuento).toFixed(2)}${p.cuponUsado?' ('+p.cuponUsado+')':''}</td></tr>` : ''}
+ ${p.codigoInterno ? `<tr><td colspan="3" class="td-r"> Cod: ${p.codigoInterno.codigo} (${p.codigoInterno.nombre})</td></tr>` : ''}
  <tr><td colspan="3" class="td-r"><strong> Total :${(p.total||0).toFixed(2)}</strong></td></tr>`;
 
  const codigoBarras = `${num}${String(totalBurgers).padStart(2,'0')}${String(items.length).padStart(2,'0')}`;
@@ -4327,7 +4343,7 @@ function admSwitchTab(tab, btn) {
  if (tab === 'mercadopago') { admCargarMercadoPago(); }
 
  // Tabs normales (display:block) 
- const BLOCK_TABS = ['pedidos','dashboard','menu','resenas','promos','cupones','integracion','codigos','mercadopago'];
+ const BLOCK_TABS = ['pedidos','dashboard','menu','resenas','promos','cupones','integracion','codigos','mercadopago','configuracion'];
  BLOCK_TABS.forEach(t => {
  const el = document.getElementById('adm-tab-' + t);
  if (el) el.style.display = t === tab ? 'block' : 'none';
@@ -4350,6 +4366,7 @@ function admSwitchTab(tab, btn) {
  if (tab === 'integracion') setTimeout(_integRenderTab, 50);
 
  // Lazy init del mapa (solo primera vez que se abre la tab) 
+ if (tab === 'configuracion') setTimeout(admCargarConfiguracion, 50);
  if (tab === 'mapa') {
  setTimeout(gfInitLazy, 80);
  }
@@ -4542,18 +4559,125 @@ function admRenderPromos() {
  let html = `
  <!-- Botón nueva promo --><button onclick="admAbrirFormPromo(null)"
  style="width:100%;margin-bottom:16px;padding:12px;background:rgba(245,158,11,.12);border:2px dashed var(--primary);color:var(--primary);border-radius:12px;font-size:14px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;"> AGREGAR NUEVA PROMO
- </button><!-- Formulario inline (oculto por defecto) --><div id="adm-promo-form" style="display:none;background:#111;border:1px solid var(--primary);border-radius:14px;padding:16px;margin-bottom:18px;"><div style="font-size:13px;font-weight:800;color:var(--primary);margin-bottom:12px;" id="adm-promo-form-title">NUEVA PROMO</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;"><div style="grid-column:1/-1;"><div style="font-size:10px;color:#9ca3af;font-weight:700;margin-bottom:4px;">NOMBRE DE LA PROMO *</div><input id="pf-nombre" type="text" placeholder="Ej: Compartir Hulk"
- style="width:100%;padding:9px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--white);font-size:13px;outline:none;"></div><div style="grid-column:1/-1;"><div style="font-size:10px;color:#9ca3af;font-weight:700;margin-bottom:4px;">DESCRIPCIÓN</div><input id="pf-desc" type="text" placeholder="Descripción breve para el cliente"
- style="width:100%;padding:9px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--white);font-size:13px;outline:none;"></div><div><div style="font-size:10px;color:#9ca3af;font-weight:700;margin-bottom:4px;">PRECIO ORIGINAL $</div><input id="pf-porig" type="number" placeholder="15500"
- style="width:100%;padding:9px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--white);font-size:13px;outline:none;"></div><div><div style="font-size:10px;color:#9ca3af;font-weight:700;margin-bottom:4px;">PRECIO PROMO $</div><input id="pf-precio" type="number" placeholder="12000"
- style="width:100%;padding:9px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--white);font-size:13px;outline:none;"></div><div style="grid-column:1/-1;"><div style="font-size:10px;color:#9ca3af;font-weight:700;margin-bottom:4px;">URL DE IMAGEN</div><input id="pf-img" type="url" placeholder="https://i.ibb.co/..."
- oninput="admPreviewPromoImg()" 
- style="width:100%;padding:9px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--white);font-size:12px;outline:none;"><img id="pf-img-preview" src="" loading="lazy" decoding="async" style="display:none;width:100%;height:100px;object-fit:cover;border-radius:8px;margin-top:6px;border:1px solid var(--border);"></div><div style="grid-column:1/-1;"><div style="font-size:10px;color:#9ca3af;font-weight:700;margin-bottom:4px;">DÍA DE VENTA</div><select id="pf-dia" style="width:100%;padding:9px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--white);font-size:13px;outline:none;"><option value="null">Todos los días</option> ${DIAS.map((d,i) => `<option value="${i}">${d}</option>`).join('')}
- </select></div></div><div style="display:flex;gap:8px;margin-top:4px;"><button onclick="admGuardarFormPromo()"
- style="flex:1;padding:10px;background:var(--primary);color:#000;border:none;border-radius:8px;font-weight:800;font-size:13px;cursor:pointer;"> GUARDAR
- </button><button onclick="admCerrarFormPromo()"
- style="padding:10px 16px;background:rgba(255,255,255,.05);border:1px solid var(--border);color:#9ca3af;border-radius:8px;font-size:13px;cursor:pointer;"> Cancelar
- </button></div><div id="pf-error" style="color:#ef4444;font-size:11px;margin-top:6px;text-align:center;"></div></div><!-- Lista de promos --><div id="adm-promos-cards">`;
+ </button><!-- Formulario inline (oculto por defecto) --><div id="adm-promo-form" style="display:none;background:#111;border:1px solid var(--primary);border-radius:14px;padding:16px;margin-bottom:18px;">
+<div style="font-size:13px;font-weight:800;color:var(--primary);margin-bottom:12px;" id="adm-promo-form-title">NUEVA PROMO</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+
+  <!-- Nombre -->
+  <div style="grid-column:1/-1;">
+    <div style="font-size:10px;color:#9ca3af;font-weight:700;margin-bottom:4px;">NOMBRE DE LA PROMO *</div>
+    <input id="pf-nombre" type="text" placeholder="Ej: Compartir Hulk"
+      style="width:100%;padding:9px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--white);font-size:13px;outline:none;box-sizing:border-box;">
+  </div>
+
+  <!-- Descripción -->
+  <div style="grid-column:1/-1;">
+    <div style="font-size:10px;color:#9ca3af;font-weight:700;margin-bottom:4px;">DESCRIPCIÓN</div>
+    <input id="pf-desc" type="text" placeholder="Descripción breve para el cliente"
+      style="width:100%;padding:9px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--white);font-size:13px;outline:none;box-sizing:border-box;">
+  </div>
+
+  <!-- Precio original -->
+  <div>
+    <div style="font-size:10px;color:#9ca3af;font-weight:700;margin-bottom:4px;">PRECIO ORIGINAL $</div>
+    <input id="pf-porig" type="number" placeholder="15500"
+      style="width:100%;padding:9px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--white);font-size:13px;outline:none;box-sizing:border-box;">
+  </div>
+
+  <!-- Precio promo -->
+  <div>
+    <div style="font-size:10px;color:#9ca3af;font-weight:700;margin-bottom:4px;">PRECIO PROMO $</div>
+    <input id="pf-precio" type="number" placeholder="12000"
+      style="width:100%;padding:9px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--white);font-size:13px;outline:none;box-sizing:border-box;">
+  </div>
+
+  <!-- Código de promo -->
+  <div>
+    <div style="font-size:10px;color:#9ca3af;font-weight:700;margin-bottom:4px;">CÓDIGO (opcional)</div>
+    <input id="pf-codigo" type="text" placeholder="Ej: HULK50" maxlength="20"
+      oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')"
+      style="width:100%;padding:9px;background:var(--bg);border:1px solid rgba(139,92,246,.4);border-radius:8px;color:#a78bfa;font-size:13px;outline:none;font-family:monospace;font-weight:700;letter-spacing:.5px;box-sizing:border-box;">
+    <div style="font-size:9px;color:#6b7280;margin-top:3px;">Aparece en comanda y en la tarjeta</div>
+  </div>
+
+  <!-- Medio de pago -->
+  <div>
+    <div style="font-size:10px;color:#9ca3af;font-weight:700;margin-bottom:4px;">MEDIO DE PAGO</div>
+    <select id="pf-metodo-pago"
+      style="width:100%;padding:9px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--white);font-size:13px;outline:none;box-sizing:border-box;">
+      <option value="todos">Todos los medios</option>
+      <option value="efectivo">💵 Solo Efectivo</option>
+      <option value="mp">🔵 Solo Mercado Pago</option>
+      <option value="transferencia">🏦 Solo Transferencia</option>
+    </select>
+  </div>
+
+  <!-- Segunda unidad -->
+  <div style="grid-column:1/-1;background:rgba(16,185,129,.06);border:1px solid rgba(16,185,129,.2);border-radius:8px;padding:10px 12px;display:flex;align-items:center;justify-content:space-between;">
+    <div>
+      <div style="font-size:12px;font-weight:700;color:#10b981;">50% en la 2da unidad</div>
+      <div style="font-size:10px;color:#6b7280;margin-top:2px;">El cliente paga la mitad al agregar una segunda vez este producto</div>
+    </div>
+    <label style="position:relative;display:inline-block;width:44px;height:24px;cursor:pointer;flex-shrink:0;">
+      <input type="checkbox" id="pf-segunda-unidad" style="opacity:0;width:0;height:0;"
+        onchange="const s=this.nextElementSibling;const d=s.nextElementSibling;s.style.background=this.checked?'#10b981':'#333';d.style.left=this.checked?'22px':'2px';">
+      <span style="position:absolute;inset:0;background:#333;border-radius:12px;transition:.3s;"></span>
+      <span style="position:absolute;top:2px;left:2px;width:20px;height:20px;background:#fff;border-radius:50%;transition:.3s;box-shadow:0 1px 4px rgba(0,0,0,.4);"></span>
+    </label>
+  </div>
+
+  <!-- Imagen -->
+  <div style="grid-column:1/-1;">
+    <div style="font-size:10px;color:#9ca3af;font-weight:700;margin-bottom:4px;">URL DE IMAGEN</div>
+    <input id="pf-img" type="url" placeholder="https://i.ibb.co/..."
+      oninput="admPreviewPromoImg()"
+      style="width:100%;padding:9px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--white);font-size:12px;outline:none;box-sizing:border-box;">
+    <img id="pf-img-preview" src="" loading="lazy" decoding="async"
+      style="display:none;width:100%;height:100px;object-fit:cover;border-radius:8px;margin-top:6px;border:1px solid var(--border);">
+  </div>
+
+  <!-- Día de venta -->
+  <div>
+    <div style="font-size:10px;color:#9ca3af;font-weight:700;margin-bottom:4px;">DÍA DE VENTA</div>
+    <select id="pf-dia"
+      style="width:100%;padding:9px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--white);font-size:13px;outline:none;box-sizing:border-box;">
+      <option value="null">Todos los días</option>
+      ${DIAS.map((d,i) => `<option value=\"${i}\">${d}</option>`).join('')}
+    </select>
+  </div>
+
+  <!-- Rango de fechas -->
+  <div style="grid-column:1/-1;">
+    <div style="font-size:10px;color:#9ca3af;font-weight:700;margin-bottom:6px;">📅 VÁLIDA ENTRE FECHAS (opcional)</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+      <div>
+        <div style="font-size:9px;color:#6b7280;margin-bottom:3px;">DESDE</div>
+        <input id="pf-fecha-desde" type="date"
+          style="width:100%;padding:9px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--white);font-size:12px;outline:none;box-sizing:border-box;color-scheme:dark;">
+      </div>
+      <div>
+        <div style="font-size:9px;color:#6b7280;margin-bottom:3px;">HASTA</div>
+        <input id="pf-fecha-hasta" type="date"
+          style="width:100%;padding:9px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--white);font-size:12px;outline:none;box-sizing:border-box;color-scheme:dark;">
+      </div>
+    </div>
+    <div style="font-size:9px;color:#6b7280;margin-top:4px;">Sin fechas = disponible siempre. Con fechas = solo visible en ese rango.</div>
+  </div>
+
+</div>
+
+<!-- Botones -->
+<div style="display:flex;gap:8px;margin-top:4px;">
+  <button onclick="admGuardarFormPromo()"
+    style="flex:1;padding:10px;background:var(--primary);color:#000;border:none;border-radius:8px;font-weight:800;font-size:13px;cursor:pointer;">
+    GUARDAR
+  </button>
+  <button onclick="admCerrarFormPromo()"
+    style="padding:10px 16px;background:rgba(255,255,255,.05);border:1px solid var(--border);color:#9ca3af;border-radius:8px;font-size:13px;cursor:pointer;">
+    Cancelar
+  </button>
+</div>
+<div id="pf-error" style="color:#ef4444;font-size:11px;margin-top:6px;text-align:center;"></div></div><!-- Lista de promos --><div id="adm-promos-cards">`;
 
  admPromosData.forEach(p => {
  const activo = p.activo !== false;
@@ -4561,7 +4685,11 @@ function admRenderPromos() {
  const descuento = p.pOriginal > p.p ? Math.round((1 - p.p / p.pOriginal) * 100) : 0;
  html += `
  <div style="background:var(--surface);border:1px solid ${activo ? 'var(--border)' : '#ef444444'};border-radius:12px;margin-bottom:10px;overflow:hidden;"><div style="display:flex;gap:10px;padding:12px;">${(p.img && p.img !== 'undefined') ? `<img src="${p.img}" loading="lazy" decoding="async" width="60" height="60" style="width:60px;height:60px;object-fit:cover;border-radius:8px;flex-shrink:0;background:#333;" onerror="this.style.display='none'">` : `<div style="width:60px;height:60px;border-radius:8px;flex-shrink:0;background:#333;font-size:20px;display:flex;align-items:center;justify-content:center;"></div>`}<div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:800;color:${activo ? 'var(--white)' : '#666'};margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.n}</div><div style="font-size:10px;color:#9ca3af;margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${p.d || ''}</div><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><span style="font-size:11px;color:#9ca3af;text-decoration:line-through;">$${(p.pOriginal||0).toLocaleString('es-AR')}</span><span style="font-size:14px;font-weight:800;color:#10b981;">$${(p.p||0).toLocaleString('es-AR')}</span> ${descuento > 0 ? `<span style="background:rgba(16,185,129,.15);color:#10b981;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;">-${descuento}%</span>` : ''}
- <span style="background:rgba(245,158,11,.12);color:var(--primary);font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;"> ${diaLabel}</span></div></div><div style="display:flex;flex-direction:column;align-items:center;gap:4px;"><label class="adm-toggle" title="${activo ? 'Desactivar' : 'Activar'}"><input type="checkbox" ${activo ? 'checked' : ''} onchange="admTogglePromo('${p.id}')"><span class="adm-toggle-slider"></span></label><span style="font-size:9px;color:${activo ? '#10b981' : '#ef4444'};font-weight:700;">${activo ? 'ON' : 'OFF'}</span></div></div><div style="display:flex;gap:0;border-top:1px solid var(--border);"><button onclick="admAbrirFormPromo('${p.id}')"
+ <span style="background:rgba(245,158,11,.12);color:var(--primary);font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;"> ${diaLabel}</span>
+ ${p.codigoPromo ? `<span style="background:rgba(139,92,246,.18);color:#a78bfa;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;font-family:monospace;">${p.codigoPromo}</span>` : ""}
+ ${p.segundaUnidad ? `<span style="background:rgba(16,185,129,.12);color:#10b981;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;">50% 2da ud.</span>` : ""}
+ ${p.metodoPago && p.metodoPago !== "todos" ? `<span style="background:rgba(59,130,246,.12);color:#60a5fa;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;">${p.metodoPago==="efectivo"?"💵 Efectivo":p.metodoPago==="mp"?"🔵 MP":p.metodoPago}</span>` : ""}
+ ${(p.fechaDesde || p.fechaHasta) ? `<span style="background:rgba(245,158,11,.1);color:var(--primary);font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;">📅 ${p.fechaDesde||"?"} → ${p.fechaHasta||"?"}</span>` : ""}</div></div><div style="display:flex;flex-direction:column;align-items:center;gap:4px;"><label class="adm-toggle" title="${activo ? 'Desactivar' : 'Activar'}"><input type="checkbox" ${activo ? 'checked' : ''} onchange="admTogglePromo('${p.id}')"><span class="adm-toggle-slider"></span></label><span style="font-size:9px;color:${activo ? '#10b981' : '#ef4444'};font-weight:700;">${activo ? 'ON' : 'OFF'}</span></div></div><div style="display:flex;gap:0;border-top:1px solid var(--border);"><button onclick="admAbrirFormPromo('${p.id}')"
  style="flex:1;padding:8px;background:transparent;border:none;border-right:1px solid var(--border);color:var(--primary);font-size:12px;font-weight:700;cursor:pointer;"> Editar
  </button> ${!p._base ? `
  <button onclick="admEliminarPromo('${p.id}')"
@@ -4608,13 +4736,21 @@ window.admAbrirFormPromo = (id) => {
  document.getElementById('pf-img').value = p.img || '';
  document.getElementById('pf-dia').value = p.diaVenta !== null && p.diaVenta !== undefined ? p.diaVenta : 'null';
  admPreviewPromoImg();
+ // Nuevos campos
+ const _pfCod=document.getElementById('pf-codigo'); if(_pfCod)_pfCod.value=p.codigoPromo||'';
+ const _pfMet=document.getElementById('pf-metodo-pago'); if(_pfMet)_pfMet.value=p.metodoPago||'todos';
+ const _pfSeg=document.getElementById('pf-segunda-unidad'); if(_pfSeg){_pfSeg.checked=p.segundaUnidad===true;const sp=_pfSeg.nextElementSibling,dp=sp&&sp.nextElementSibling;if(sp)sp.style.background=_pfSeg.checked?'#10b981':'#333';if(dp)dp.style.left=_pfSeg.checked?'22px':'2px';}
+ const _pfDesde=document.getElementById('pf-fecha-desde'); if(_pfDesde)_pfDesde.value=p.fechaDesde||'';
+ const _pfHasta=document.getElementById('pf-fecha-hasta'); if(_pfHasta)_pfHasta.value=p.fechaHasta||'';
  } else {
  // Nueva promo
  title.innerText = 'NUEVA PROMO';
- ['pf-nombre','pf-desc','pf-porig','pf-precio','pf-img'].forEach(id => {
+ ['pf-nombre','pf-desc','pf-porig','pf-precio','pf-img','pf-codigo','pf-fecha-desde','pf-fecha-hasta'].forEach(id => {
  const el = document.getElementById(id); if (el) el.value = '';
  });
  document.getElementById('pf-dia').value = 'null';
+ const _pfMet=document.getElementById('pf-metodo-pago'); if(_pfMet)_pfMet.value='todos';
+ const _pfSeg=document.getElementById('pf-segunda-unidad'); if(_pfSeg){_pfSeg.checked=false;const sp=_pfSeg.nextElementSibling,dp=sp&&sp.nextElementSibling;if(sp)sp.style.background='#333';if(dp)dp.style.left='2px';}
  const prev = document.getElementById('pf-img-preview');
  if (prev) prev.style.display = 'none';
  }
@@ -4637,6 +4773,11 @@ window.admGuardarFormPromo = async () => {
  const img = document.getElementById('pf-img')?.value.trim();
  const diaRaw = document.getElementById('pf-dia')?.value;
  const dia = diaRaw === 'null' ? null : parseInt(diaRaw);
+ const codigoPromo   = (document.getElementById('pf-codigo')?.value || '').trim().toUpperCase();
+ const metodoPago    = document.getElementById('pf-metodo-pago')?.value || 'todos';
+ const segundaUnidad = document.getElementById('pf-segunda-unidad')?.checked === true;
+ const fechaDesde    = document.getElementById('pf-fecha-desde')?.value || null;
+ const fechaHasta    = document.getElementById('pf-fecha-hasta')?.value || null;
  const errEl = document.getElementById('pf-error');
 
  if (!nombre) { errEl.innerText = 'El nombre es obligatorio.'; return; }
@@ -4654,6 +4795,11 @@ window.admGuardarFormPromo = async () => {
  n: nombre, d: desc, pOriginal: pOrig, p: precio,
  img: img || '', diaVenta: dia, cat: 'Promos', ings: [],
  activo: true,
+ codigoPromo: codigoPromo || null,
+ metodoPago: metodoPago || 'todos',
+ segundaUnidad: segundaUnidad || false,
+ fechaDesde: fechaDesde || null,
+ fechaHasta: fechaHasta || null,
  ...(isNueva ? { _custom: true } : {})
  };
 
