@@ -4606,9 +4606,9 @@ function admRenderPromos() {
     <select id="pf-metodo-pago"
       style="width:100%;padding:9px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--white);font-size:13px;outline:none;box-sizing:border-box;">
       <option value="todos">Todos los medios</option>
-      <option value="efectivo">💵 Solo Efectivo</option>
-      <option value="mp">🔵 Solo Mercado Pago</option>
-      <option value="transferencia">🏦 Solo Transferencia</option>
+      <option value="efectivo">Solo Efectivo</option>
+      <option value="mp">Solo Mercado Pago</option>
+      <option value="transferencia">Solo Transferencia</option>
     </select>
   </div>
 
@@ -4648,7 +4648,7 @@ function admRenderPromos() {
 
   <!-- Rango de fechas -->
   <div style="grid-column:1/-1;">
-    <div style="font-size:10px;color:#9ca3af;font-weight:700;margin-bottom:6px;">📅 VÁLIDA ENTRE FECHAS (opcional)</div>
+    <div style="font-size:10px;color:#9ca3af;font-weight:700;margin-bottom:6px;">VÁLIDA ENTRE FECHAS (opcional)</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
       <div>
         <div style="font-size:9px;color:#6b7280;margin-bottom:3px;">DESDE</div>
@@ -4688,8 +4688,8 @@ function admRenderPromos() {
  <span style="background:rgba(245,158,11,.12);color:var(--primary);font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;"> ${diaLabel}</span>
  ${p.codigoPromo ? `<span style="background:rgba(139,92,246,.18);color:#a78bfa;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;font-family:monospace;">${p.codigoPromo}</span>` : ""}
  ${p.segundaUnidad ? `<span style="background:rgba(16,185,129,.12);color:#10b981;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;">50% 2da ud.</span>` : ""}
- ${p.metodoPago && p.metodoPago !== "todos" ? `<span style="background:rgba(59,130,246,.12);color:#60a5fa;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;">${p.metodoPago==="efectivo"?"💵 Efectivo":p.metodoPago==="mp"?"🔵 MP":p.metodoPago}</span>` : ""}
- ${(p.fechaDesde || p.fechaHasta) ? `<span style="background:rgba(245,158,11,.1);color:var(--primary);font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;">📅 ${p.fechaDesde||"?"} → ${p.fechaHasta||"?"}</span>` : ""}</div></div><div style="display:flex;flex-direction:column;align-items:center;gap:4px;"><label class="adm-toggle" title="${activo ? 'Desactivar' : 'Activar'}"><input type="checkbox" ${activo ? 'checked' : ''} onchange="admTogglePromo('${p.id}')"><span class="adm-toggle-slider"></span></label><span style="font-size:9px;color:${activo ? '#10b981' : '#ef4444'};font-weight:700;">${activo ? 'ON' : 'OFF'}</span></div></div><div style="display:flex;gap:0;border-top:1px solid var(--border);"><button onclick="admAbrirFormPromo('${p.id}')"
+ ${p.metodoPago && p.metodoPago !== "todos" ? `<span style="background:rgba(59,130,246,.12);color:#60a5fa;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;">${p.metodoPago==="efectivo"?" Efectivo":p.metodoPago==="mp"?" MP":p.metodoPago}</span>` : ""}
+ ${(p.fechaDesde || p.fechaHasta) ? `<span style="background:rgba(245,158,11,.1);color:var(--primary);font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;"> ${p.fechaDesde||"?"} → ${p.fechaHasta||"?"}</span>` : ""}</div></div><div style="display:flex;flex-direction:column;align-items:center;gap:4px;"><label class="adm-toggle" title="${activo ? 'Desactivar' : 'Activar'}"><input type="checkbox" ${activo ? 'checked' : ''} onchange="admTogglePromo('${p.id}')"><span class="adm-toggle-slider"></span></label><span style="font-size:9px;color:${activo ? '#10b981' : '#ef4444'};font-weight:700;">${activo ? 'ON' : 'OFF'}</span></div></div><div style="display:flex;gap:0;border-top:1px solid var(--border);"><button onclick="admAbrirFormPromo('${p.id}')"
  style="flex:1;padding:8px;background:transparent;border:none;border-right:1px solid var(--border);color:var(--primary);font-size:12px;font-weight:700;cursor:pointer;"> Editar
  </button> ${!p._base ? `
  <button onclick="admEliminarPromo('${p.id}')"
