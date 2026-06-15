@@ -3019,14 +3019,23 @@ function admPedidosFiltrados() {
  let lista = [...admPedidos];
 
  // Filtro sucursal
- // FIX: usar sucursalId (exacto) cuando existe. Fallback a .includes() para
- // pedidos históricos que todavía no tienen el campo sucursalId.
+ // sucursalId es el ID corto exacto ("Centro","Norte","Sur","Funes","Cafferata").
+ // Fallback para pedidos históricos sin sucursalId: mapear por fragmento de dirección.
+ const _SUC_FALLBACK = {
+   Centro: ['PELLEGRINI','Pellegrini','pellegrini'],
+   Norte: ['Rondeau','rondeau'],
+   Sur: ['San Martin','san martin','Martin','VGG','Sur'],
+   Funes: ['Funes','funes','RN9'],
+   Cafferata: ['Cafferata','cafferata'],
+ };
  const sucVal = document.getElementById('adm-suc-filtro')?.value || '';
  if (sucVal) {
-   lista = lista.filter(p =>
-     p.sucursalId === sucVal ||
-     (!p.sucursalId && (p.sucursal || '').includes(sucVal))
-   );
+   lista = lista.filter(p => {
+     if (p.sucursalId) return p.sucursalId === sucVal;
+     // fallback para pedidos históricos
+     const dir = p.sucursal || '';
+     return (_SUC_FALLBACK[sucVal] || []).some(kw => dir.includes(kw));
+   });
  }
 
  // Filtro estado/tipo
@@ -3058,19 +3067,37 @@ function admRenderPedidos() {
  return;
  }
 
- // Agrupar por sucursal
+ // Agrupar por sucursal — usar sucursalId para el key y mostrar nombre legible
+ const _NOMBRE_SUC = {
+   Centro: 'Centro — Pellegrini 1149',
+   Norte: 'Norte — Rondeau 2430',
+   Sur: 'Sur / VGG — San Martin 1808',
+   Funes: 'Funes — RN9 972',
+   Cafferata: 'Cafferata — Cafferata y Urquiza',
+ };
  const grupos = {};
  lista.forEach(p => {
- const suc = p.sucursal || 'Sin sucursal';
- if (!grupos[suc]) grupos[suc] = [];
- grupos[suc].push(p);
+   // Usar sucursalId como clave si existe; sino derivar desde la dirección para pedidos históricos
+   let key = p.sucursalId || '';
+   if (!key) {
+     const dir = p.sucursal || '';
+     if (dir.includes('PELLEGRINI') || dir.includes('Pellegrini')) key = 'Centro';
+     else if (dir.includes('Rondeau')) key = 'Norte';
+     else if (dir.includes('Martin') || dir.includes('VGG')) key = 'Sur';
+     else if (dir.includes('Funes') || dir.includes('RN9')) key = 'Funes';
+     else if (dir.includes('Cafferata')) key = 'Cafferata';
+     else key = dir || 'Sin sucursal';
+   }
+   if (!grupos[key]) grupos[key] = [];
+   grupos[key].push(p);
  });
 
  let html = '';
  for (const [suc, pedidos] of Object.entries(grupos)) {
  const totalSuc = pedidos.reduce((a, p) => a + (p.total || 0), 0);
+ const sucLabel = _NOMBRE_SUC[suc] || suc;
  html += `
- <div class="adm-suc-header"><div><span style="font-weight:800;font-size:14px;color:var(--primary);">${suc}</span><span style="color:#9ca3af;font-size:11px;margin-left:10px;">${pedidos.length} pedido${pedidos.length !== 1 ? 's' : ''}</span></div><span style="font-weight:800;color:#10b981;font-size:13px;">$${totalSuc.toLocaleString('es-AR')}</span></div>`;
+ <div class="adm-suc-header"><div><span style="font-weight:800;font-size:14px;color:var(--primary);">${sucLabel}</span><span style="color:#9ca3af;font-size:11px;margin-left:10px;">${pedidos.length} pedido${pedidos.length !== 1 ? 's' : ''}</span></div><span style="font-weight:800;color:#10b981;font-size:13px;">$${totalSuc.toLocaleString('es-AR')}</span></div>`;
  html += pedidos.map(p => admRenderCard(p)).join('');
  }
  cont.innerHTML = html;
