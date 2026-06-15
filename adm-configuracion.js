@@ -96,7 +96,7 @@ window.admCargarConfiguracion = async function () {
  // Sección teléfonos 
  const telefonosHtml = SUCURSALES_CFG.map(suc => {
  const t = telefonos[suc] || DEFAULT_TELEFONOS[suc] || {};
- const num = t.numero || '5493413345885';
+ const num = t.numero || '5493413315885';
  const activo = t.activo !== false;
  return `
  <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;
@@ -525,6 +525,7 @@ window.admGuardarConfiguracion = async function () {
  mensajeColor: document.getElementById('cfg-msg-color')?.value || '#f59e0b',
  cierreGlobal: document.getElementById('cfg-cierre-global')?.checked === true,
  cierreMensaje: document.getElementById('cfg-cierre-msg')?.value.trim() || '',
+ wspClienteActivo: document.getElementById('cfg-wsp-cliente-activo')?.checked !== false,
  };
 
  await window.db.collection('config_menu').doc(CFG_DOC).set(
