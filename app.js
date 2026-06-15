@@ -223,18 +223,18 @@ window.aplicarCuponDesdeRegalos = (cuponId) => {
 ];
 
 const SUC_MAP = {
- Centro: { n: "PELLEGRINI 1149, Rosario Centro", wsp: "5493413315885", mapImg: "https://i.ibb.co/Mxp9b7Tp/mapas-2026-estetica-nueva-1-Centro.png", locs: {
+ Centro: { n: "PELLEGRINI 1149, Rosario Centro", wsp: "5493413890000", mapImg: "https://i.ibb.co/Mxp9b7Tp/mapas-2026-estetica-nueva-1-Centro.png", locs: {
  "Rosario Centro": 2000
  } },
- Norte: { n: "Rondeau 2430, Rosario Norte", wsp: "5493413315885", mapImg: "https://i.ibb.co/dsxs1vQF/mapas-2026-estetica-nueva-2-Centro.png", locs: {
+ Norte: { n: "Rondeau 2430, Rosario Norte", wsp: "5493417034333", mapImg: "https://i.ibb.co/dsxs1vQF/mapas-2026-estetica-nueva-2-Centro.png", locs: {
  "Rosario Norte": 2000,
  "Granadero Baigorria": 2000
  } },
- Sur: { n: "San Martin 1808, Rosario Sur", wsp: "5493413315885", mapImg: "https://i.ibb.co/LKX8S4F/mapas-2026-estetica-nueva-3-Centro.png", locs: {
+ Sur: { n: "San Martin 1808, Rosario Sur", wsp: "5493413244444", mapImg: "https://i.ibb.co/LKX8S4F/mapas-2026-estetica-nueva-3-Centro.png", locs: {
  "Rosario Sur": 2600,
  "Villa Gdor. Gálvez": 2800
  } },
- Funes: { n: "RN9 972, Funes", wsp: "5493413315885", mapImg: "https://i.ibb.co/VpPXMSLb/mapas-2026-estetica-nueva-5-Centro.png", locs: {
+ Funes: { n: "RN9 972, Funes", wsp: "5493413116060", mapImg: "https://i.ibb.co/VpPXMSLb/mapas-2026-estetica-nueva-5-Centro.png", locs: {
  "Funes Centro": 1900,
  "Funes Norte": 1900,
  "Funes Sur": 1900,
@@ -247,7 +247,7 @@ const SUC_MAP = {
  "B.P. Palvear / Palos Verdes": 4300,
  "B.P. Barrio Vida / Lagoon": 4000
  } },
- Cafferata: { n: "Cafferata y Urquiza, Rosario", wsp: "5493413315885", mapImg: "https://i.ibb.co/MDZxyKgy/mapas-2026-estetica-nueva-6-Cafferata.png", locs: {
+ Cafferata: { n: "Cafferata y Urquiza, Rosario", wsp: "5493413244444", mapImg: "https://i.ibb.co/MDZxyKgy/mapas-2026-estetica-nueva-6-Cafferata.png", locs: {
   "Rosario (Zona Cafferata)": 2000,
   "Alto Rosario / Puerto Norte": 2000
  } }
