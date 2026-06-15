@@ -1391,7 +1391,10 @@ window.procesarPedido = async () => {
  mostrarSucesoPedido('mercadopago', `https://wa.me/${SUC_MAP[sucId].wsp}?text=${t}`, total);
  } else {
  // Efectivo / Tarjeta → pantalla verde → WhatsApp
- mostrarSucesoPedido('whatsapp', SUC_MAP[sucId].wspOff ? null : `https://wa.me/${SUC_MAP[sucId].wsp}?text=${t}`, total);
+ // Respetar flag wspClienteActivo (configurable desde el panel de Configuración)
+ const _wspClienteActivo = window._cfgWspClienteActivo !== false;
+ const _waUrl = (SUC_MAP[sucId].wspOff || !_wspClienteActivo) ? null : `https://wa.me/${SUC_MAP[sucId].wsp}?text=${t}`;
+ mostrarSucesoPedido('whatsapp', _waUrl, total);
  }
 
  } catch (e) {
