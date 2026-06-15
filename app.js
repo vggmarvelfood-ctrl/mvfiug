@@ -2507,7 +2507,7 @@ let trackingUnsubscribe = null;
 const TRACKING_ESTADOS = [
  { key: 'Pendiente', label: 'Enviaste tu pedido', emoji: '' },
  { key: 'Aceptado', label: 'En preparación', emoji: '' },
- { key: 'Listo', label: 'Listo para envío', emoji: '' },
+ { key: 'Listo', label: 'Finalizado', emoji: '' },
  { key: 'Entregado', label: 'Entregado', emoji: '' },
  { key: 'Cancelado', label: 'Pedido anulado', emoji: '' }
 ];
