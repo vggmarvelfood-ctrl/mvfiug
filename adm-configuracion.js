@@ -96,7 +96,7 @@ window.admCargarConfiguracion = async function () {
  // Sección teléfonos 
  const telefonosHtml = SUCURSALES_CFG.map(suc => {
  const t = telefonos[suc] || DEFAULT_TELEFONOS[suc] || {};
- const num = t.numero || '5493413315885';
+ const num = t.numero || '5493413345885';
  const activo = t.activo !== false;
  return `
  <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;
@@ -300,7 +300,46 @@ window.admCargarConfiguracion = async function () {
  </div>
  </div>
 
- <!-- SECCIÓN: CIERRE TEMPORAL -->
+     <!-- SECCIÓN: MENSAJE WHATSAPP CLIENTE -->
+    <div style="background:var(--surface);border:1px solid rgba(37,211,102,.25);border-radius:14px;
+      padding:16px;margin-bottom:20px;">
+      <div style="font-size:12px;color:#25d366;font-weight:700;text-transform:uppercase;
+        letter-spacing:.5px;margin-bottom:12px;"> Mensaje de Confirmación al Cliente (WhatsApp)</div>
+
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+        <div>
+          <span style="font-size:12px;color:var(--white);font-weight:700;display:block;">
+            Enviar mensaje al completar el pedido
+          </span>
+          <span style="font-size:10px;color:#6b7280;display:block;margin-top:2px;">
+            Si está desactivado, el pedido se guarda pero NO abre WhatsApp.
+          </span>
+        </div>
+        ${toggle('cfg-wsp-cliente-activo', general.wspClienteActivo !== false, "admCfgToggleWspCliente(this.checked)")}
+      </div>
+
+      <!-- Preview del mensaje -->
+      <div id="cfg-wsp-preview"
+        style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:12px;
+        font-size:11px;color:#9ca3af;font-family:monospace;line-height:1.7;white-space:pre-wrap;
+        opacity:${general.wspClienteActivo !== false ? '1' : '0.4'};transition:opacity .3s;">*NUEVO PEDIDO | MARVEL FOOD*
+---------------------------
+*Sucursal:* San Martin 1808, Rosario Sur
+*Horario Est.:* 20:14 a 20:29 hs
+*Teléfono:* 3413 24-4444
+*Cliente:* NOMBRE APELLIDO
+*Tipo:* Retiro
+---------------------------
+*Pago:* Tarjeta
+---------------------------
+*1x Vision Veggie* ($6.800)
+---------------------------
+*Subtotal:* $6.800
+
+*TOTAL FINAL: $6.800*</div>
+    </div>
+
+    <!-- SECCIÓN: CIERRE TEMPORAL -->
  <div style="background:var(--surface);border:1px solid rgba(239,68,68,.3);border-radius:14px;
  padding:16px;margin-bottom:20px;">
  <div style="font-size:12px;color:#ef4444;font-weight:700;text-transform:uppercase;
@@ -428,6 +467,18 @@ window.admCfgToggleCierreGlobal = function (activo) {
  }
 };
 
+window.admCfgToggleWspCliente = function (activo) {
+  const chk = document.getElementById('cfg-wsp-cliente-activo');
+  if (chk) {
+    const span = chk.nextElementSibling;
+    const dot = span && span.nextElementSibling;
+    if (span) span.style.background = activo ? '#25d366' : '#333';
+    if (dot) dot.style.left = activo ? '22px' : '2px';
+  }
+  const preview = document.getElementById('cfg-wsp-preview');
+  if (preview) preview.style.opacity = activo ? '1' : '0.4';
+};
+
 window.admCfgSelectColor = function (color) {
  document.getElementById('cfg-msg-color').value = color;
  document.querySelectorAll('[data-color]').forEach(el => {
@@ -537,6 +588,7 @@ window.cargarConfigGeneral = async function () {
  const gen = cfg.general || {};
  if (gen.cierreGlobal) _mostrarCierreGlobal(gen.cierreMensaje);
  if (gen.mensajeActivo && gen.mensajeTexto) _mostrarMensajeGlobal(gen.mensajeTexto, gen.mensajeColor);
+ window._cfgWspClienteActivo = gen.wspClienteActivo !== false;
 
  } catch (e) {
  console.warn('[Config] Error cargando config general:', e.message);
@@ -573,6 +625,9 @@ function _mostrarMensajeGlobal(texto, color) {
 // Aplicar en vivo desde admin sin recargar 
 window._admAplicarConfigEnVivo = function ({ general, telefonos }) {
  const gen = general || {};
+
+ // Flag WhatsApp cliente (propagado a app.js vía window global)
+ window._cfgWspClienteActivo = gen.wspClienteActivo !== false;
 
  // Teléfonos en SUC_MAP en memoria
  if (telefonos && window.SUC_MAP) {
