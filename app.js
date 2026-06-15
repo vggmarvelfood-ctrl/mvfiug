@@ -2505,7 +2505,7 @@ window.limpiarHistorialPedidos = () => {
 let trackingUnsubscribe = null;
 
 const TRACKING_ESTADOS = [
- { key: 'Pendiente', label: 'Pedido recibido', emoji: '' },
+ { key: 'Pendiente', label: 'Enviaste tu pedido', emoji: '' },
  { key: 'Aceptado', label: 'En preparación', emoji: '' },
  { key: 'Listo', label: 'Listo para envío', emoji: '' },
  { key: 'Entregado', label: 'Entregado', emoji: '' },
@@ -2614,7 +2614,7 @@ function renderTrackingModal(p) {
  const linCls = isDone ? 'done' : '';
  return `
  <div class="tp-item"><div class="tp-line-col"><div class="tp-circle ${cirCls}">${isDone ? '' : e.emoji}</div> ${i < TRACKING_ESTADOS.length - 1 ? `<div class="tp-vline ${linCls}"></div>` : ''}
- </div><div class="tp-content"><div class="tp-title" style="color:${isActive?'var(--primary)':isDone?'#10b981':'var(--text-light)'}">${e.label}</div> ${isActive ? `<div class="tp-time">En curso...</div>` : isDone ? `<div class="tp-time" style="color:#10b981">Completado</div>` : ''}
+ </div><div class="tp-content"><div class="tp-title" style="color:${isActive?'var(--primary)':isDone?'#10b981':'var(--text-light)'}">${e.label}</div> ${isActive ? `<div class="tp-time">Espera a que acepten tu pedido...</div>` : isDone ? `<div class="tp-time" style="color:#10b981">Completado</div>` : ''}
  </div></div>`;
  }).join('');
 
