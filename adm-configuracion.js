@@ -14,11 +14,11 @@ const SUCURSALES_CFG = ['Centro', 'Norte', 'Sur', 'Funes', 'Cafferata'];
 
 // Teléfonos hardcodeados en app.js — se usan como fallback si Firestore está vacío
 const DEFAULT_TELEFONOS = {
- Centro: { numero: '5493413315885', activo: true },
- Norte: { numero: '5493413315885', activo: true },
- Sur: { numero: '5493413315885', activo: true },
- Funes: { numero: '5493413315885', activo: true },
- Cafferata: { numero: '5493413315885', activo: true },
+ Centro:    { numero: '5493413890000', activo: true },
+ Norte:     { numero: '5493417034333', activo: true },
+ Sur:       { numero: '5493413244444', activo: true },
+ Funes:     { numero: '5493413116060', activo: true },
+ Cafferata: { numero: '5493413244444', activo: true },
 };
 
 // Helper: formatear número para mostrar legible 
