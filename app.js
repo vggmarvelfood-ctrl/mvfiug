@@ -224,32 +224,60 @@ window.aplicarCuponDesdeRegalos = (cuponId) => {
 
 const SUC_MAP = {
  Centro: { n: "PELLEGRINI 1149, Rosario Centro", wsp: "5493413890000", mapImg: "https://i.ibb.co/Mxp9b7Tp/mapas-2026-estetica-nueva-1-Centro.png", locs: {
- "Rosario Centro": 2000
+  "PELLEGRINI":          2300,
+  "Rosario Centro":      2300,
+  "Fuera de zona":       2500
  } },
  Norte: { n: "Rondeau 2430, Rosario Norte", wsp: "5493417034333", mapImg: "https://i.ibb.co/dsxs1vQF/mapas-2026-estetica-nueva-2-Centro.png", locs: {
- "Rosario Norte": 2000,
- "Granadero Baigorria": 2000
+  "NORTE 1":             2300,
+  "NORTE 2":             2300,
+  "NORTE 3":             2300,
+  "NORTE 4":             2300,
+  "NORTE | ZONA BAIGORRIA": 2300,
+  "Rosario Norte":       2300,
+  "Granadero Baigorria": 2300
  } },
  Sur: { n: "San Martin 1808, Rosario Sur", wsp: "5493413244444", mapImg: "https://i.ibb.co/LKX8S4F/mapas-2026-estetica-nueva-3-Centro.png", locs: {
- "Rosario Sur": 2600,
- "Villa Gdor. Gálvez": 2800
+  "ZONA SUR":            2800,
+  "GALVEZ 1":            3300,
+  "GALVEZ 2":            3300,
+  "GALVEZ 3":            3300,
+  "GALVEZ 4":            3300,
+  "Rosario Sur":         2800,
+  "Villa Gdor. Galvez":  3300,
+  "VGG":                 3300
  } },
  Funes: { n: "RN9 972, Funes", wsp: "5493413116060", mapImg: "https://i.ibb.co/VpPXMSLb/mapas-2026-estetica-nueva-5-Centro.png", locs: {
- "Funes Centro": 1900,
- "Funes Norte": 1900,
- "Funes Sur": 1900,
- "Funes Este": 2200,
- "Funes Oeste": 2200,
- "Fisherton": 3000,
- "Barrios Privados — Funes": 2700,
- "Barrios Privados — Fisherton": 3200,
- "B.P. Kentucky": 4300,
- "B.P. Palvear / Palos Verdes": 4300,
- "B.P. Barrio Vida / Lagoon": 4000
+  "FUNES 1":             2300,
+  "FUNES 2":             2300,
+  "FUNES 3":             2300,
+  "FUNES 5":             2300,
+  "FUNES 4":             4300,
+  "FUNES 6 | FISHERTON": 3600,
+  "FUNES 7 | FISHERTON": 3500,
+  "FUN 8 | FISHERTON":   3600,
+  "funes 9 | FISHERTON": 3500,
+  "FUNES 10 | FISHERTON":3500,
+  "Funes Centro":        2300,
+  "Funes Norte":         2300,
+  "Funes Sur":           2300,
+  "Funes Este":          2500,
+  "Funes Oeste":         2500,
+  "Fisherton":           3500,
+  "B.P. Kentucky":       4300,
+  "B.P. Palos Verdes":   4300,
+  "B.P. Fisherton":      3600,
+  "B.P. Vida / Lagoon":  4000
  } },
  Cafferata: { n: "Cafferata y Urquiza, Rosario", wsp: "5493413244444", mapImg: "https://i.ibb.co/MDZxyKgy/mapas-2026-estetica-nueva-6-Cafferata.png", locs: {
-  "Rosario (Zona Cafferata)": 2000,
-  "Alto Rosario / Puerto Norte": 2000
+  "cafferata1":                          2300,
+  "cafferata 3":                         2300,
+  "cafferata 4":                         2300,
+  "cafferata 6":                         2300,
+  "cafferata 7":                         2300,
+  "cafferata alto rosario / puerto norte": 2500,
+  "Rosario (Zona Cafferata)":            2300,
+  "Alto Rosario / Puerto Norte":         2500
  } }
  };
 
@@ -1628,13 +1656,19 @@ function _getPrecioEnvioPorSucursal(sucursal, localidad) {
  if (!suc || !suc.locs) return 0;
  // Buscar coincidencia de localidad en locs
  const locNorm = (localidad || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
+ if (!locNorm) { return Object.values(suc.locs)[0] || 0; }
+ // 1) Coincidencia exacta (normalizada)
  for (const [locKey, precio] of Object.entries(suc.locs)) {
- const keyNorm = locKey.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
- if (keyNorm.includes(locNorm) || locNorm.includes(keyNorm)) return precio;
+   const keyNorm = locKey.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
+   if (keyNorm === locNorm) return precio;
  }
- // Retornar el primer precio (base) de esa sucursal
- const primero = Object.values(suc.locs)[0];
- return primero || 0;
+ // 2) Coincidencia de la zona dentro de la key (e.g. "GALVEZ 1" matchea "galvez 1")
+ for (const [locKey, precio] of Object.entries(suc.locs)) {
+   const keyNorm = locKey.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
+   if (keyNorm.includes(locNorm) || locNorm.includes(keyNorm)) return precio;
+ }
+ // 3) Fallback: primer precio de la sucursal
+ return Object.values(suc.locs)[0] || 0;
 }
 
 // Detectar zona usando turf geofencing con coordenadas
@@ -2505,9 +2539,9 @@ window.limpiarHistorialPedidos = () => {
 let trackingUnsubscribe = null;
 
 const TRACKING_ESTADOS = [
- { key: 'Pendiente', label: 'Enviaste tu pedido', emoji: '' },
+ { key: 'Pendiente', label: 'Pedido recibido', emoji: '' },
  { key: 'Aceptado', label: 'En preparación', emoji: '' },
- { key: 'Listo', label: 'Finalizado', emoji: '' },
+ { key: 'Listo', label: 'Listo para envío', emoji: '' },
  { key: 'Entregado', label: 'Entregado', emoji: '' },
  { key: 'Cancelado', label: 'Pedido anulado', emoji: '' }
 ];
