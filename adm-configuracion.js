@@ -62,7 +62,7 @@ window.admCargarConfiguracion = async function () {
  const snap = await window.db.collection('config_menu').doc(CFG_DOC).get();
  if (snap.exists) cfg = snap.data() || {};
  // Guardar secciones para que _seccionesRender() las tenga disponibles
- _seccionesRender._current = Object.assign(
+ _seccionesCache = Object.assign(
    { inicio:true, promos:true, pedidos:true, cupones:true, opiniones:true, locales:true },
    (cfg.secciones || {})
  );
@@ -691,6 +691,8 @@ window._admAplicarConfigEnVivo = function ({ general, telefonos }) {
 //  Integrado en adm-configuracion.js (sin archivo externo)
 // ============================================================
 
+let _seccionesCache = {};
+
 const _SECCIONES_DEF = [
   { key: 'inicio',    tabId: 'tab-inicio',    navSel: '.nav-item[onclick*="tab-inicio"]',    label: 'Inicio',    icono: '🏠', esencial: true  },
   { key: 'promos',    tabId: 'tab-promos',    navSel: '.nav-item[onclick*="tab-promos"]',    label: 'Promos',    icono: '🏷️', esencial: false },
@@ -715,7 +717,7 @@ function _seccionesGetValues() {
 function _seccionesRender() {
   const lista = document.getElementById('cfg-secciones-lista');
   if (!lista) return;
-  const secciones = _seccionesRender._current || {};
+  const secciones = _seccionesCache || {};
 
   lista.innerHTML = _SECCIONES_DEF.map(({ key, label, icono, esencial }) => {
     const activo = esencial ? true : (secciones[key] !== false);
