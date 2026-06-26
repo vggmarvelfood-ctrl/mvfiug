@@ -61,6 +61,11 @@ window.admCargarConfiguracion = async function () {
  try {
  const snap = await window.db.collection('config_menu').doc(CFG_DOC).get();
  if (snap.exists) cfg = snap.data() || {};
+ // Guardar secciones para que _seccionesRender() las tenga disponibles
+ _seccionesRender._current = Object.assign(
+   { inicio:true, promos:true, pedidos:true, cupones:true, opiniones:true, locales:true },
+   (cfg.secciones || {})
+ );
  } catch (e) {
  cont.innerHTML = `<div style="padding:20px;color:#ef4444;font-size:13px;">Error al cargar: ${e.message}</div>`;
  return;
@@ -367,9 +372,10 @@ window.admCargarConfiguracion = async function () {
  ${horariosHtml}
 
  <!-- SECCIÓN: VISIBILIDAD DE SECCIONES -->
- <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:20px;" id="cfg-secciones-container">
+ <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:20px;">
    <div style="font-size:12px;color:var(--primary);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:14px;">🧭 Secciones de Navegación</div>
-   <div id="cfg-secciones-inner"><div style="color:#6b7280;font-size:12px;">Cargando...</div></div>
+   <p style="font-size:12px;color:#6b7280;margin:0 0 14px;">Activá o desactivá las pestañas visibles para tus clientes. Los cambios aplican al guardar.</p>
+   <div id="cfg-secciones-lista" style="display:flex;flex-direction:column;gap:8px;"></div>
  </div>
 
  <!-- Botón guardar global -->
@@ -385,11 +391,9 @@ window.admCargarConfiguracion = async function () {
  </div>`;
 };
 
-  // Cargar secciones de navegación
-  if (typeof window.renderSeccionesAdmin === 'function') {
-    const secInner = document.getElementById('cfg-secciones-inner');
-    if (secInner) window.renderSeccionesAdmin(secInner);
-  }
+  // Render secciones dentro del form de configuración
+  _seccionesRender();
+
 
 // Helpers visuales de teléfono 
 window.admCfgPreviewTel = function (suc) {
@@ -541,9 +545,7 @@ window.admGuardarConfiguracion = async function () {
  };
 
     // Recolectar secciones visibles
-    const secciones = typeof window.admSeccionesGetValues === 'function'
-      ? window.admSeccionesGetValues()
-      : {};
+    const secciones = _seccionesGetValues();
 
     await window.db.collection('config_menu').doc(CFG_DOC).set(
       { telefonos, horarios, general, secciones },
@@ -551,9 +553,7 @@ window.admGuardarConfiguracion = async function () {
     );
 
     // Aplicar visibilidad en vivo
-    if (typeof window.aplicarVisibilidadSecciones === 'function') {
-      window.aplicarVisibilidadSecciones(secciones);
-    }
+    aplicarVisibilidadSecciones(secciones);
 
  // Aplicar teléfonos en SUC_MAP en memoria (sin recargar)
  if (window.SUC_MAP) {
@@ -613,10 +613,8 @@ window.cargarConfigGeneral = async function () {
  if (gen.mensajeActivo && gen.mensajeTexto) _mostrarMensajeGlobal(gen.mensajeTexto, gen.mensajeColor);
  window._cfgWspClienteActivo = gen.wspClienteActivo !== false;
 
-    // Aplicar visibilidad de secciones
-    if (typeof window.aplicarVisibilidadSecciones === 'function') {
-      window.aplicarVisibilidadSecciones(cfg.secciones || {});
-    }
+    // Aplicar visibilidad de secciones al cargar el storefront
+    aplicarVisibilidadSecciones(cfg.secciones || {});
 
  } catch (e) {
  console.warn('[Config] Error cargando config general:', e.message);
@@ -687,3 +685,97 @@ window._admAplicarConfigEnVivo = function ({ general, telefonos }) {
  window.actualizarEstadoLocal();
  }
 };
+
+// ============================================================
+//  SECCIONES DE NAVEGACIÓN — control de visibilidad
+//  Integrado en adm-configuracion.js (sin archivo externo)
+// ============================================================
+
+const _SECCIONES_DEF = [
+  { key: 'inicio',    tabId: 'tab-inicio',    navSel: '.nav-item[onclick*="tab-inicio"]',    label: 'Inicio',    icono: '🏠', esencial: true  },
+  { key: 'promos',    tabId: 'tab-promos',    navSel: '.nav-item[onclick*="tab-promos"]',    label: 'Promos',    icono: '🏷️', esencial: false },
+  { key: 'pedidos',   tabId: 'tab-pedidos',   navSel: '#nav-pedidos',                        label: 'Pedidos',   icono: '📋', esencial: false },
+  { key: 'cupones',   tabId: 'tab-perfil',    navSel: '.nav-item[onclick*="tab-perfil"]',    label: 'Cupones',   icono: '🎁', esencial: false },
+  { key: 'opiniones', tabId: 'tab-opiniones', navSel: '.nav-item[onclick*="tab-opiniones"]', label: 'Opiniones', icono: '⭐', esencial: false },
+  { key: 'locales',   tabId: 'tab-zonas',     navSel: '.nav-item[onclick*="tab-zonas"]',     label: 'Locales',   icono: '📍', esencial: false },
+];
+
+// Recolectar valores actuales de los checkboxes del admin
+function _seccionesGetValues() {
+  const result = {};
+  _SECCIONES_DEF.forEach(({ key, esencial }) => {
+    if (esencial) { result[key] = true; return; }
+    const cb = document.getElementById('cfg-sec-' + key);
+    result[key] = cb ? cb.checked : true;
+  });
+  return result;
+}
+
+// Renderizar los toggles en #cfg-secciones-lista con los valores del cfg ya cargado
+function _seccionesRender() {
+  const lista = document.getElementById('cfg-secciones-lista');
+  if (!lista) return;
+  const secciones = _seccionesRender._current || {};
+
+  lista.innerHTML = _SECCIONES_DEF.map(({ key, label, icono, esencial }) => {
+    const activo = esencial ? true : (secciones[key] !== false);
+    return `
+      <div style="display:flex;align-items:center;justify-content:space-between;
+                  padding:13px 14px;background:var(--bg);border:1px solid var(--border);border-radius:10px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="font-size:18px;line-height:1;">${icono}</span>
+          <div>
+            <div style="font-size:13px;font-weight:800;color:var(--white);">${label}</div>
+            <div style="font-size:10px;font-weight:700;margin-top:1px;color:${activo ? '#10b981' : '#6b7280'};"
+                 id="cfg-sec-lbl-${key}">${esencial ? 'SIEMPRE VISIBLE' : (activo ? 'VISIBLE' : 'OCULTO')}</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          ${esencial
+            ? `<span style="font-size:10px;color:#4b5563;padding:3px 8px;border:1px solid #333;border-radius:20px;font-weight:700;">NO EDITABLE</span>`
+            : `<label style="position:relative;display:inline-block;width:44px;height:24px;cursor:pointer;flex-shrink:0;">
+                <input type="checkbox" id="cfg-sec-${key}" ${activo ? 'checked' : ''}
+                  onchange="admSeccionToggle('${key}', this.checked)"
+                  style="opacity:0;width:0;height:0;">
+                <span id="cfg-sec-track-${key}" style="position:absolute;inset:0;background:${activo ? '#10b981' : '#374151'};border-radius:12px;transition:.3s;"></span>
+                <span id="cfg-sec-thumb-${key}" style="position:absolute;top:2px;left:${activo ? '22px' : '2px'};width:20px;height:20px;background:#fff;border-radius:50%;transition:.3s;box-shadow:0 1px 4px rgba(0,0,0,.4);"></span>
+              </label>`
+          }
+        </div>
+      </div>`;
+  }).join('');
+}
+
+// Feedback visual inmediato al tocar un toggle
+window.admSeccionToggle = function(key, checked) {
+  const track = document.getElementById('cfg-sec-track-' + key);
+  const thumb = document.getElementById('cfg-sec-thumb-' + key);
+  const lbl   = document.getElementById('cfg-sec-lbl-' + key);
+  if (track) track.style.background = checked ? '#10b981' : '#374151';
+  if (thumb) thumb.style.left = checked ? '22px' : '2px';
+  if (lbl)   { lbl.textContent = checked ? 'VISIBLE' : 'OCULTO'; lbl.style.color = checked ? '#10b981' : '#6b7280'; }
+};
+
+// Aplicar visibilidad en el storefront (nav + resumen opiniones)
+function aplicarVisibilidadSecciones(secciones) {
+  if (!secciones) return;
+  _SECCIONES_DEF.forEach(({ key, navSel, esencial }) => {
+    const visible = esencial ? true : (secciones[key] !== false);
+    const nav = document.querySelector(navSel);
+    if (nav) nav.style.display = visible ? '' : 'none';
+    if (key === 'opiniones') {
+      const resumen = document.getElementById('section-resumen-opiniones');
+      if (resumen) resumen.style.display = visible ? '' : 'none';
+    }
+  });
+  // Si el tab activo quedó oculto → volver a inicio
+  const tabActivo = document.querySelector('.tab-page:not(.hidden)');
+  if (tabActivo) {
+    const secDef = _SECCIONES_DEF.find(s => s.tabId === tabActivo.id);
+    if (secDef && secciones[secDef.key] === false) {
+      const navInicio = document.querySelector('.nav-item[onclick*="tab-inicio"]');
+      if (typeof switchTab === 'function' && navInicio) switchTab('tab-inicio', navInicio);
+    }
+  }
+  window._seccionesActivas = secciones;
+}
