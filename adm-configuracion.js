@@ -389,10 +389,10 @@ window.admCargarConfiguracion = async function () {
  <div id="cfg-feedback" style="margin-top:10px;text-align:center;font-size:12px;font-weight:700;
  min-height:20px;"></div>
  </div>`;
-};
 
   // Render secciones dentro del form de configuración
   _seccionesRender();
+};
 
 
 // Helpers visuales de teléfono 
