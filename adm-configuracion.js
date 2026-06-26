@@ -348,7 +348,7 @@ window.admCargarConfiguracion = async function () {
     <div style="background:var(--surface);border:1px solid rgba(99,102,241,.35);border-radius:14px;
       padding:16px;margin-bottom:20px;">
       <div style="font-size:12px;color:#818cf8;font-weight:700;text-transform:uppercase;
-        letter-spacing:.5px;margin-bottom:12px;">📦 Notificación de Seguimiento del Pedido</div>
+        letter-spacing:.5px;margin-bottom:12px;"> Notificación de Seguimiento del Pedido</div>
 
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
         <div>
@@ -410,7 +410,7 @@ window.admCargarConfiguracion = async function () {
 
  <!-- SECCIÓN: VISIBILIDAD DE SECCIONES -->
  <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:20px;">
-   <div style="font-size:12px;color:var(--primary);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:14px;">🧭 Secciones de Navegación</div>
+   <div style="font-size:12px;color:var(--primary);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:14px;"> Secciones de Navegación</div>
    <p style="font-size:12px;color:#6b7280;margin:0 0 14px;">Activá o desactivá las pestañas visibles para tus clientes. Los cambios aplican al guardar.</p>
    <div id="cfg-secciones-lista" style="display:flex;flex-direction:column;gap:8px;"></div>
  </div>
@@ -756,12 +756,12 @@ window._admAplicarConfigEnVivo = function ({ general, telefonos }) {
 let _seccionesCache = {};
 
 const _SECCIONES_DEF = [
-  { key: 'inicio',    tabId: 'tab-inicio',    navSel: '.nav-item[onclick*="tab-inicio"]',    label: 'Inicio',    icono: '🏠', esencial: true  },
-  { key: 'promos',    tabId: 'tab-promos',    navSel: '.nav-item[onclick*="tab-promos"]',    label: 'Promos',    icono: '🏷️', esencial: false },
-  { key: 'pedidos',   tabId: 'tab-pedidos',   navSel: '#nav-pedidos',                        label: 'Pedidos',   icono: '📋', esencial: false },
-  { key: 'cupones',   tabId: 'tab-perfil',    navSel: '.nav-item[onclick*="tab-perfil"]',    label: 'Cupones',   icono: '🎁', esencial: false },
-  { key: 'opiniones', tabId: 'tab-opiniones', navSel: '.nav-item[onclick*="tab-opiniones"]', label: 'Opiniones', icono: '⭐', esencial: false },
-  { key: 'locales',   tabId: 'tab-zonas',     navSel: '.nav-item[onclick*="tab-zonas"]',     label: 'Locales',   icono: '📍', esencial: false },
+  { key: 'inicio',    tabId: 'tab-inicio',    navSel: '.nav-item[onclick*="tab-inicio"]',    label: 'Inicio',    icono: ' ', esencial: true  },
+  { key: 'promos',    tabId: 'tab-promos',    navSel: '.nav-item[onclick*="tab-promos"]',    label: 'Promos',    icono: ' ', esencial: false },
+  { key: 'pedidos',   tabId: 'tab-pedidos',   navSel: '#nav-pedidos',                        label: 'Pedidos',   icono: ' ', esencial: false },
+  { key: 'cupones',   tabId: 'tab-perfil',    navSel: '.nav-item[onclick*="tab-perfil"]',    label: 'Cupones',   icono: ' ', esencial: false },
+  { key: 'opiniones', tabId: 'tab-opiniones', navSel: '.nav-item[onclick*="tab-opiniones"]', label: 'Opiniones', icono: ' ', esencial: false },
+  { key: 'locales',   tabId: 'tab-zonas',     navSel: '.nav-item[onclick*="tab-zonas"]',     label: 'Locales',   icono: ' ', esencial: false },
 ];
 
 // Estado en memoria de los toggles (fuente de verdad — evita depender de cb.checked nativo
