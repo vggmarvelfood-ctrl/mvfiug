@@ -2530,6 +2530,7 @@ const TRACKING_ESTADOS = [
 
 function iniciarSeguimiento(pedidoId) {
  if (window.__IS_ADMIN__) return; // no mostrar en admin
+ if (window._cfgTrackingActivo === false) return; // tracking desactivado desde el admin
  if (trackingUnsubscribe) trackingUnsubscribe();
  trackingUnsubscribe = db.collection("pedidos_v2").doc(pedidoId)
  .onSnapshot(snap => {
@@ -2547,6 +2548,8 @@ function iniciarSeguimiento(pedidoId) {
 function actualizarTrackingUI(p, pedidoId) {
  const bar = document.getElementById('tracking-bar');
  if (!bar) return;
+ // Si el tracking fue desactivado desde el admin, limpiar y no mostrar
+ if (window._cfgTrackingActivo === false) { bar.innerHTML = ''; return; }
 
  if (p.estado === 'Entregado') {
  // Mostrar modal de OPINIÓN PÚBLICA si no se envió aún para este pedido
