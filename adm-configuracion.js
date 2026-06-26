@@ -344,6 +344,43 @@ window.admCargarConfiguracion = async function () {
 *TOTAL FINAL: $6.800*</div>
     </div>
 
+    <!-- SECCIÓN: NOTIFICACIÓN SEGUIMIENTO PEDIDO -->
+    <div style="background:var(--surface);border:1px solid rgba(99,102,241,.35);border-radius:14px;
+      padding:16px;margin-bottom:20px;">
+      <div style="font-size:12px;color:#818cf8;font-weight:700;text-transform:uppercase;
+        letter-spacing:.5px;margin-bottom:12px;">📦 Notificación de Seguimiento del Pedido</div>
+
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <div>
+          <span style="font-size:12px;color:var(--white);font-weight:700;display:block;">
+            Mostrar seguimiento en tiempo real al cliente
+          </span>
+          <span style="font-size:10px;color:#6b7280;display:block;margin-top:2px;">
+            Si está desactivado, el cliente NO verá la pill ni el modal de estado del pedido.
+          </span>
+        </div>
+        ${toggle('cfg-tracking-activo', general.trackingActivo !== false, "admCfgToggleTracking(this.checked)")}
+      </div>
+
+      <!-- Preview visual del tracking -->
+      <div id="cfg-tracking-preview"
+        style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:12px;
+        opacity:${general.trackingActivo !== false ? '1' : '0.4'};transition:opacity .3s;pointer-events:none;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+          <div style="width:8px;height:8px;border-radius:50%;background:#818cf8;
+            box-shadow:0 0 6px #818cf8;animation:cfgSpin 1s linear infinite;flex-shrink:0;"></div>
+          <span style="font-size:11px;font-weight:700;color:#818cf8;">TU PEDIDO · NOMBRE CLIENTE</span>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          ${['Pedido recibido','En preparación','Listo para envío','Entregado'].map((s,i) =>
+            `<span style="font-size:10px;padding:3px 8px;border-radius:20px;font-weight:700;
+              background:${i===0?'rgba(129,140,248,.2)':'rgba(255,255,255,.05)'};
+              color:${i===0?'#818cf8':'#4b5563'};border:1px solid ${i===0?'rgba(129,140,248,.4)':'var(--border)'};">${s}</span>`
+          ).join('')}
+        </div>
+      </div>
+    </div>
+
     <!-- SECCIÓN: CIERRE TEMPORAL -->
  <div style="background:var(--surface);border:1px solid rgba(239,68,68,.3);border-radius:14px;
  padding:16px;margin-bottom:20px;">
@@ -495,6 +532,18 @@ window.admCfgToggleWspCliente = function (activo) {
   if (preview) preview.style.opacity = activo ? '1' : '0.4';
 };
 
+window.admCfgToggleTracking = function (activo) {
+  const chk = document.getElementById('cfg-tracking-activo');
+  if (chk) {
+    const span = chk.nextElementSibling;
+    const dot = span && span.nextElementSibling;
+    if (span) span.style.background = activo ? '#818cf8' : '#333';
+    if (dot) dot.style.left = activo ? '22px' : '2px';
+  }
+  const preview = document.getElementById('cfg-tracking-preview');
+  if (preview) preview.style.opacity = activo ? '1' : '0.4';
+};
+
 window.admCfgSelectColor = function (color) {
  document.getElementById('cfg-msg-color').value = color;
  document.querySelectorAll('[data-color]').forEach(el => {
@@ -542,6 +591,7 @@ window.admGuardarConfiguracion = async function () {
  cierreGlobal: document.getElementById('cfg-cierre-global')?.checked === true,
  cierreMensaje: document.getElementById('cfg-cierre-msg')?.value.trim() || '',
  wspClienteActivo: document.getElementById('cfg-wsp-cliente-activo')?.checked !== false,
+ trackingActivo: document.getElementById('cfg-tracking-activo')?.checked !== false,
  };
 
     // Recolectar secciones visibles
@@ -563,6 +613,15 @@ window.admGuardarConfiguracion = async function () {
  window.SUC_MAP[suc].wspOff = !telefonos[suc].activo;
  }
  });
+ }
+
+ // Propagar trackingActivo en vivo
+ window._cfgTrackingActivo = general.trackingActivo !== false;
+ if (!window._cfgTrackingActivo) {
+   // Ocultar pill y cerrar modal si el tracking se desactiva en tiempo real
+   const bar = document.getElementById('tracking-bar');
+   if (bar) bar.innerHTML = '';
+   if (typeof cerrarTracking === 'function') cerrarTracking();
  }
 
  // Actualizar horarios en memoria
@@ -612,6 +671,7 @@ window.cargarConfigGeneral = async function () {
  if (gen.cierreGlobal) _mostrarCierreGlobal(gen.cierreMensaje);
  if (gen.mensajeActivo && gen.mensajeTexto) _mostrarMensajeGlobal(gen.mensajeTexto, gen.mensajeColor);
  window._cfgWspClienteActivo = gen.wspClienteActivo !== false;
+ window._cfgTrackingActivo   = gen.trackingActivo !== false;
 
     // Aplicar visibilidad de secciones al cargar el storefront
     aplicarVisibilidadSecciones(cfg.secciones || {});
@@ -654,6 +714,8 @@ window._admAplicarConfigEnVivo = function ({ general, telefonos }) {
 
  // Flag WhatsApp cliente (propagado a app.js vía window global)
  window._cfgWspClienteActivo = gen.wspClienteActivo !== false;
+ // Flag tracking (propagado a app.js)
+ window._cfgTrackingActivo = gen.trackingActivo !== false;
 
  // Teléfonos en SUC_MAP en memoria
  if (telefonos && window.SUC_MAP) {
@@ -702,19 +764,16 @@ const _SECCIONES_DEF = [
   { key: 'locales',   tabId: 'tab-zonas',     navSel: '.nav-item[onclick*="tab-zonas"]',     label: 'Locales',   icono: '📍', esencial: false },
 ];
 
-// Recolectar valores actuales de los toggles del admin
-// Lee de _seccionesEstado (fuente de verdad en memoria), no de cb.checked nativo
+// Recolectar valores actuales de los checkboxes del admin
 function _seccionesGetValues() {
   const result = {};
   _SECCIONES_DEF.forEach(({ key, esencial }) => {
-    result[key] = esencial ? true : (_seccionesEstado[key] !== false);
+    if (esencial) { result[key] = true; return; }
+    const cb = document.getElementById('cfg-sec-' + key);
+    result[key] = cb ? cb.checked : true;
   });
   return result;
 }
-
-// Estado en memoria de los toggles de secciones (fuente de verdad, evita depender de cb.checked nativo)
-// Se inicializa al renderizar y se actualiza al tocar cada toggle.
-let _seccionesEstado = {};
 
 // Renderizar los toggles en #cfg-secciones-lista con los valores del cfg ya cargado
 function _seccionesRender() {
@@ -722,13 +781,8 @@ function _seccionesRender() {
   if (!lista) return;
   const secciones = _seccionesCache || {};
 
-  // Inicializar estado en memoria con los valores actuales de Firestore
-  _SECCIONES_DEF.forEach(({ key, esencial }) => {
-    _seccionesEstado[key] = esencial ? true : (secciones[key] !== false);
-  });
-
   lista.innerHTML = _SECCIONES_DEF.map(({ key, label, icono, esencial }) => {
-    const activo = _seccionesEstado[key];
+    const activo = esencial ? true : (secciones[key] !== false);
     return `
       <div style="display:flex;align-items:center;justify-content:space-between;
                   padding:13px 14px;background:var(--bg);border:1px solid var(--border);border-radius:10px;">
@@ -743,53 +797,21 @@ function _seccionesRender() {
         <div style="display:flex;align-items:center;gap:8px;">
           ${esencial
             ? `<span style="font-size:10px;color:#4b5563;padding:3px 8px;border:1px solid #333;border-radius:20px;font-weight:700;">NO EDITABLE</span>`
-            : `<div id="cfg-sec-toggle-${key}"
-                 data-key="${key}"
-                 role="switch"
-                 aria-checked="${activo}"
-                 tabindex="0"
-                 style="position:relative;display:inline-block;width:44px;height:24px;cursor:pointer;flex-shrink:0;border-radius:12px;-webkit-tap-highlight-color:transparent;">
-                <span id="cfg-sec-track-${key}" style="position:absolute;inset:0;background:${activo ? '#10b981' : '#374151'};border-radius:12px;transition:.3s;pointer-events:none;"></span>
-                <span id="cfg-sec-thumb-${key}" style="position:absolute;top:2px;left:${activo ? '22px' : '2px'};width:20px;height:20px;background:#fff;border-radius:50%;transition:.3s;box-shadow:0 1px 4px rgba(0,0,0,.4);pointer-events:none;"></span>
-              </div>`
+            : `<label style="position:relative;display:inline-block;width:44px;height:24px;cursor:pointer;flex-shrink:0;">
+                <input type="checkbox" id="cfg-sec-${key}" ${activo ? 'checked' : ''}
+                  onchange="admSeccionToggle('${key}', this.checked)"
+                  style="opacity:0;width:0;height:0;">
+                <span id="cfg-sec-track-${key}" style="position:absolute;inset:0;background:${activo ? '#10b981' : '#374151'};border-radius:12px;transition:.3s;"></span>
+                <span id="cfg-sec-thumb-${key}" style="position:absolute;top:2px;left:${activo ? '22px' : '2px'};width:20px;height:20px;background:#fff;border-radius:50%;transition:.3s;box-shadow:0 1px 4px rgba(0,0,0,.4);"></span>
+              </label>`
           }
         </div>
       </div>`;
   }).join('');
-
-  // Adjuntar listeners DESPUÉS de inyectar el HTML (sin onchange inline)
-  _SECCIONES_DEF.forEach(({ key, esencial }) => {
-    if (esencial) return;
-    const btn = document.getElementById('cfg-sec-toggle-' + key);
-    if (!btn) return;
-
-    function _toggleSec(e) {
-      e.preventDefault();
-      e.stopPropagation();
-      const nuevoValor = !_seccionesEstado[key];
-      _seccionesEstado[key] = nuevoValor;
-      // Actualizar visual
-      const track = document.getElementById('cfg-sec-track-' + key);
-      const thumb = document.getElementById('cfg-sec-thumb-' + key);
-      const lbl   = document.getElementById('cfg-sec-lbl-' + key);
-      if (track) track.style.background = nuevoValor ? '#10b981' : '#374151';
-      if (thumb) thumb.style.left       = nuevoValor ? '22px' : '2px';
-      if (btn)   btn.setAttribute('aria-checked', nuevoValor);
-      if (lbl)   { lbl.textContent = nuevoValor ? 'VISIBLE' : 'OCULTO'; lbl.style.color = nuevoValor ? '#10b981' : '#6b7280'; }
-    }
-
-    btn.addEventListener('click',      _toggleSec);
-    btn.addEventListener('touchend',   _toggleSec, { passive: false });
-    btn.addEventListener('keydown', function(e) {
-      if (e.key === ' ' || e.key === 'Enter') _toggleSec(e);
-    });
-  });
 }
 
-// admSeccionToggle: ya no se llama desde onchange inline,
-// pero se mantiene en window para compatibilidad con adm-secciones.js si está cargado.
+// Feedback visual inmediato al tocar un toggle
 window.admSeccionToggle = function(key, checked) {
-  _seccionesEstado[key] = checked;
   const track = document.getElementById('cfg-sec-track-' + key);
   const thumb = document.getElementById('cfg-sec-thumb-' + key);
   const lbl   = document.getElementById('cfg-sec-lbl-' + key);
