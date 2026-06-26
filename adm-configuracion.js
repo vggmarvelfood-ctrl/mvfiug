@@ -366,6 +366,12 @@ window.admCargarConfiguracion = async function () {
  </p>
  ${horariosHtml}
 
+ <!-- SECCIÓN: VISIBILIDAD DE SECCIONES -->
+ <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:20px;" id="cfg-secciones-container">
+   <div style="font-size:12px;color:var(--primary);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:14px;">🧭 Secciones de Navegación</div>
+   <div id="cfg-secciones-inner"><div style="color:#6b7280;font-size:12px;">Cargando...</div></div>
+ </div>
+
  <!-- Botón guardar global -->
  <button onclick="admGuardarConfiguracion()"
  style="width:100%;padding:14px;background:var(--primary);color:#000;border:none;
@@ -378,6 +384,12 @@ window.admCargarConfiguracion = async function () {
  min-height:20px;"></div>
  </div>`;
 };
+
+  // Cargar secciones de navegación
+  if (typeof window.renderSeccionesAdmin === 'function') {
+    const secInner = document.getElementById('cfg-secciones-inner');
+    if (secInner) window.renderSeccionesAdmin(secInner);
+  }
 
 // Helpers visuales de teléfono 
 window.admCfgPreviewTel = function (suc) {
@@ -528,10 +540,20 @@ window.admGuardarConfiguracion = async function () {
  wspClienteActivo: document.getElementById('cfg-wsp-cliente-activo')?.checked !== false,
  };
 
- await window.db.collection('config_menu').doc(CFG_DOC).set(
- { telefonos, horarios, general },
- { merge: true }
- );
+    // Recolectar secciones visibles
+    const secciones = typeof window.admSeccionesGetValues === 'function'
+      ? window.admSeccionesGetValues()
+      : {};
+
+    await window.db.collection('config_menu').doc(CFG_DOC).set(
+      { telefonos, horarios, general, secciones },
+      { merge: true }
+    );
+
+    // Aplicar visibilidad en vivo
+    if (typeof window.aplicarVisibilidadSecciones === 'function') {
+      window.aplicarVisibilidadSecciones(secciones);
+    }
 
  // Aplicar teléfonos en SUC_MAP en memoria (sin recargar)
  if (window.SUC_MAP) {
@@ -590,6 +612,11 @@ window.cargarConfigGeneral = async function () {
  if (gen.cierreGlobal) _mostrarCierreGlobal(gen.cierreMensaje);
  if (gen.mensajeActivo && gen.mensajeTexto) _mostrarMensajeGlobal(gen.mensajeTexto, gen.mensajeColor);
  window._cfgWspClienteActivo = gen.wspClienteActivo !== false;
+
+    // Aplicar visibilidad de secciones
+    if (typeof window.aplicarVisibilidadSecciones === 'function') {
+      window.aplicarVisibilidadSecciones(cfg.secciones || {});
+    }
 
  } catch (e) {
  console.warn('[Config] Error cargando config general:', e.message);
