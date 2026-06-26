@@ -2099,12 +2099,6 @@ function obtenerCuponDelDia() {
  let html = '';
  for (const key in SUC_MAP) {
  const suc = SUC_MAP[key];
- // Armar filas de precios
- let locsHtml = '';
- for (const loc in suc.locs) {
- locsHtml += `
- <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);"> <span style="color:var(--text-light);font-size:13px;">${loc}</span> <strong style="color:var(--white);font-size:14px;">$${suc.locs[loc].toLocaleString('es-AR')}</strong> </div>`;
- }
  const mapaBtnHtml = suc.mapImg
  ? `<button onclick="abrirZonaMapa('${key}')"
  style="width:100%;margin-top:14px;padding:13px;border-radius:10px;border:none;
@@ -2117,8 +2111,7 @@ function obtenerCuponDelDia() {
  html += `
  <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;
  padding:18px;margin-bottom:16px;box-shadow:var(--shadow-card);"> <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;"> <div style="width:36px;height:36px;border-radius:8px;background:rgba(245,158,11,0.12);
- display:flex;align-items:center;justify-content:center;flex-shrink:0;"> <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg> </div> <div> <div style="font-weight:800;font-size:14px;color:var(--white);text-transform:uppercase;">${suc.n.split(',')[0]}</div> <div style="font-size:11px;color:var(--text-light);margin-top:1px;">${suc.n.includes(',') ? suc.n.split(',').slice(1).join(',').trim() : ''}</div> </div> </div> <div style="border-top:1px solid var(--border);padding-top:12px;"> ${locsHtml}
- </div> ${mapaBtnHtml}
+ display:flex;align-items:center;justify-content:center;flex-shrink:0;"> <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg> </div> <div> <div style="font-weight:800;font-size:14px;color:var(--white);text-transform:uppercase;">${suc.n.split(',')[0]}</div> <div style="font-size:11px;color:var(--text-light);margin-top:1px;">${suc.n.includes(',') ? suc.n.split(',').slice(1).join(',').trim() : ''}</div> </div> </div> ${mapaBtnHtml}
  </div>`;
  }
  container.innerHTML = html;
@@ -2131,13 +2124,7 @@ function obtenerCuponDelDia() {
  if (!suc) return;
  document.getElementById('zona-modal-titulo').textContent = suc.n.split(',')[0];
  document.getElementById('zona-modal-subtitulo').textContent = suc.n;
- // Precios en chips horizontales
- let preciosHtml = '<div style="display:flex;flex-wrap:wrap;gap:8px;">';
- for (const loc in suc.locs) {
- preciosHtml += `<div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:6px 12px;font-size:12px;white-space:nowrap;"> <span style="color:var(--text-light);">${loc}</span> <strong style="color:var(--primary);margin-left:6px;">$${suc.locs[loc].toLocaleString('es-AR')}</strong> </div>`;
- }
- preciosHtml += '</div>';
- document.getElementById('zona-modal-precios').innerHTML = preciosHtml;
+ document.getElementById('zona-modal-precios').innerHTML = '';
  const img = document.getElementById('zona-modal-img');
  const noImg = document.getElementById('zona-modal-no-img');
  if (suc.mapImg) {
@@ -2183,14 +2170,9 @@ function obtenerCuponDelDia() {
  let html = '';
  for (const key in SUC_MAP) {
  const suc = SUC_MAP[key];
- let locsHtml = '';
- for (const loc in suc.locs) {
- locsHtml += `<div style="display:flex; justify-content:space-between; margin-bottom:8px; border-bottom:1px dashed var(--border); padding-bottom:8px; color: var(--text-light); font-size: 13px;"><span>${loc}</span><strong style="color:var(--white);">$${suc.locs[loc]}</strong></div>`;
- }
  
  html += `
- <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 20px; box-shadow: var(--shadow);"><h3 style="color: var(--primary); font-weight: 800; font-size: 16px; margin-bottom: 15px; text-transform: uppercase;">${suc.n}</h3><div style="margin-bottom: 15px; background: var(--bg); padding: 12px; border-radius: 10px;"> ${locsHtml}
- </div> ${suc.mapImg ? `<img src="${suc.mapImg}" width="600" height="400" loading="lazy" decoding="async" style="width: 100%; border-radius: 10px; border: 1px solid var(--border); object-fit: cover;">` : ''}
+ <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 20px; box-shadow: var(--shadow);"><h3 style="color: var(--primary); font-weight: 800; font-size: 16px; margin-bottom: 15px; text-transform: uppercase;">${suc.n}</h3> ${suc.mapImg ? `<img src="${suc.mapImg}" width="600" height="400" loading="lazy" decoding="async" style="width: 100%; border-radius: 10px; border: 1px solid var(--border); object-fit: cover;">` : ''}
  </div>`;
  }
  container.innerHTML = html;
