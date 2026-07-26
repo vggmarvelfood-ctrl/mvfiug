@@ -296,66 +296,66 @@ const MENU = [
   {
     cat: "Hamburguesas",
     items: [
-      { id: 1, n: "Black Panther", p: 9900, d: "Medallón Marvel, cebolla caramelizada, roquefort, panceta, mayonesa y honey mustard.", img: "https://i.ibb.co/pB5HmKcH/Black-Phanter-4.jpg", ings: ["Cebolla caramelizada", "Roquefort", "Panceta", "Honey mustard"] },
-      { id: 2, n: "Capitán América", p: 10800, d: "Medallón Marvel, muzzarella, jamón, tomate, lechuga, huevo frito y mayonesa.", img: "https://i.ibb.co/2YqP8ZsG/Capit-n-Am-rica-1.jpg", ings: ["Muzzarella", "Jamón", "Huevo frito", "Lechuga", "Tomate"] },
-      { id: 3, n: "Capitana Marvel", p: 13300, d: "2 medallones Marvel, lechuga, cebolla, pepino, cheddar y salsa Marvel.", img: "https://i.ibb.co/YV106Zd/Cap-Marvel-1.jpg", ings: ["Lechuga", "Cebolla", "Pepino", "Cheddar", "Salsa Marvel"] },
-      { id: 4, n: "Dr Strange", p: 12900, d: "2 medallones Marvel, extra cheddar, panceta, lechuga, tomate y mayonesa.", img: "https://i.ibb.co/HDJ8x89R/Dr-Strange-3.jpg", ings: ["Cheddar", "Panceta", "Lechuga", "Tomate"] },
-      { id: 5, n: "Hulk Burger", p: 12900, d: "2 medallones Marvel, cheddar, panceta, BBQ y cebolla caramelizada.", img: "https://i.ibb.co/mrvsKzmn/Hulk-4.jpg", ings: ["Cheddar", "Panceta", "BBQ", "Cebolla caramelizada"] },
-      { id: 6, n: "Iron Man", p: 10800, d: "Medallón Marvel, cebolla caramelizada, BBQ, cheddar y panceta.", img: "https://i.ibb.co/9kR57Dqt/Ironman-9.jpg", ings: ["Cebolla caramelizada", "BBQ", "Cheddar", "Panceta"] },
-      { id: 7, n: "Loki", p: 10200, d: "Medallón Marvel, panceta, lechuga, provolone, cheddar picante, mayonesa y cebolla.", img: "https://i.ibb.co/N2XJ7FKz/Loki-7.jpg", ings: ["Panceta", "Provolone", "Cheddar picante", "Lechuga", "Cebolla"] },
-      { id: 8, n: "Natasha", p: 9100, d: "Medallón Marvel y cheddar.", img: "https://i.ibb.co/wND2yZMC/Natasha-6.jpg", ings: ["Cheddar"] },
-      { id: 9, n: "Peter Parker", p: 9100, d: "Medallón Marvel, cebolla caramelizada, cheddar y ketchup.", img: "https://i.ibb.co/hJ8F2Cz7/Peter-3.jpg", ings: ["Cebolla caramelizada", "Cheddar", "Ketchup"] },
-      { id: 10, n: "Thanos", p: 18800, d: "4 medallones Marvel, cheddar, cebolla caramelizada, panceta y salsa especial.", img: "https://i.ibb.co/pBmFm18N/Thanos-6.jpg", ings: ["Cheddar", "Cebolla caramelizada", "Panceta", "Salsa especial"] },
-      { id: 11, n: "Vision", p: 9600, d: "Medallón Marvel, lechuga, tomate, muzarella, panceta y aderezo de albahaca.", img: "https://i.ibb.co/4RQG77sj/Visi-n-1.jpg", ings: ["Lechuga", "Tomate", "Muzarella", "Panceta", "Aderezo de albahaca"] },
-      { id: 12, n: "Wanda", p: 9100, d: "Medallón Marvel, lechuga, tomate, muzarella, cebolla morada y palta.", img: "https://i.ibb.co/qL7nFvtY/Wanda-1.jpg", ings: ["Lechuga", "Tomate", "Muzarella", "Cebolla morada", "Palta"] },
-      { id: 13, n: "Wolverine", p: 16700, d: "3 medallones Marvel, cheddar, panceta, mayonesa y batatas rock fritas.", img: "https://i.ibb.co/rKMLXVhD/Wolverine.png", ings: ["Cheddar", "Panceta", "Batatas rock"] }
+      { id: 1, n: "Black Panther", p: 10900, d: "Medallón Marvel, cebolla caramelizada, roquefort, panceta, mayonesa y honey mustard.", img: "https://i.ibb.co/pB5HmKcH/Black-Phanter-4.jpg", ings: ["Cebolla caramelizada", "Roquefort", "Panceta", "Honey mustard"] },
+      { id: 2, n: "Capitán América", p: 11900, d: "Medallón Marvel, muzzarella, jamón, tomate, lechuga, huevo frito y mayonesa.", img: "https://i.ibb.co/2YqP8ZsG/Capit-n-Am-rica-1.jpg", ings: ["Muzzarella", "Jamón", "Huevo frito", "Lechuga", "Tomate"] },
+      { id: 3, n: "Capitana Marvel", p: 14700, d: "2 medallones Marvel, lechuga, cebolla, pepino, cheddar y salsa Marvel.", img: "https://i.ibb.co/YV106Zd/Cap-Marvel-1.jpg", ings: ["Lechuga", "Cebolla", "Pepino", "Cheddar", "Salsa Marvel"] },
+      { id: 4, n: "Dr Strange", p: 14200, d: "2 medallones Marvel, extra cheddar, panceta, lechuga, tomate y mayonesa.", img: "https://i.ibb.co/HDJ8x89R/Dr-Strange-3.jpg", ings: ["Cheddar", "Panceta", "Lechuga", "Tomate"] },
+      { id: 5, n: "Hulk Burger", p: 14200, d: "2 medallones Marvel, cheddar, panceta, BBQ y cebolla caramelizada.", img: "https://i.ibb.co/mrvsKzmn/Hulk-4.jpg", ings: ["Cheddar", "Panceta", "BBQ", "Cebolla caramelizada"] },
+      { id: 6, n: "Iron Man", p: 11900, d: "Medallón Marvel, cebolla caramelizada, BBQ, cheddar y panceta.", img: "https://i.ibb.co/9kR57Dqt/Ironman-9.jpg", ings: ["Cebolla caramelizada", "BBQ", "Cheddar", "Panceta"] },
+      { id: 7, n: "Loki", p: 11300, d: "Medallón Marvel, panceta, lechuga, provolone, cheddar picante, mayonesa y cebolla.", img: "https://i.ibb.co/N2XJ7FKz/Loki-7.jpg", ings: ["Panceta", "Provolone", "Cheddar picante", "Lechuga", "Cebolla"] },
+      { id: 8, n: "Natasha", p: 10100, d: "Medallón Marvel y cheddar.", img: "https://i.ibb.co/wND2yZMC/Natasha-6.jpg", ings: ["Cheddar"] },
+      { id: 9, n: "Peter Parker", p: 10100, d: "Medallón Marvel, cebolla caramelizada, cheddar y ketchup.", img: "https://i.ibb.co/hJ8F2Cz7/Peter-3.jpg", ings: ["Cebolla caramelizada", "Cheddar", "Ketchup"] },
+      { id: 10, n: "Thanos", p: 20700, d: "4 medallones Marvel, cheddar, cebolla caramelizada, panceta y salsa especial.", img: "https://i.ibb.co/pBmFm18N/Thanos-6.jpg", ings: ["Cheddar", "Cebolla caramelizada", "Panceta", "Salsa especial"] },
+      { id: 11, n: "Vision", p: 10600, d: "Medallón Marvel, lechuga, tomate, muzarella, panceta y aderezo de albahaca.", img: "https://i.ibb.co/4RQG77sj/Visi-n-1.jpg", ings: ["Lechuga", "Tomate", "Muzarella", "Panceta", "Aderezo de albahaca"] },
+      { id: 12, n: "Wanda", p: 10100, d: "Medallón Marvel, lechuga, tomate, muzarella, cebolla morada y palta.", img: "https://i.ibb.co/qL7nFvtY/Wanda-1.jpg", ings: ["Lechuga", "Tomate", "Muzarella", "Cebolla morada", "Palta"] },
+      { id: 13, n: "Wolverine", p: 18300, d: "3 medallones Marvel, cheddar, panceta, mayonesa y batatas rock fritas.", img: "https://i.ibb.co/rKMLXVhD/Wolverine.png", ings: ["Cheddar", "Panceta", "Batatas rock"] }
     ]
   },
   {
     cat: "Hamburguesas Veggie",
     items: [
-      { id: 14, n: "Vegan Valkyria", p: 6800, d: "Medallón de lentejas, mayonesa vegana, lechuga, tomate, cebolla morada y pepino. Opción: Choclo y Arroz o Remolacha y Semillas.", img: "https://i.ibb.co/N6nbNCFs/valikyria.png", ings: ["Lentejas", "Mayo vegana", "Lechuga", "Tomate", "Cebolla morada", "Pepino"] },
-      { id: 30, n: "Black Panther Veggie", p: 6800, d: "Cebolla caramelizada, roquefort, mayonesa y honey mustard. Opción: Choclo y Arroz o Remolacha y Semillas.", img: "https://i.ibb.co/4nbNZ5Pg/Black-Panther.png", ings: ["Cebolla caramelizada", "Roquefort", "Mayonesa", "Honey mustard"] },
-      { id: 31, n: "Capitán América Veggie", p: 6800, d: "Muzzarella, tomate, lechuga, huevo frito y mayonesa. Opción: Choclo y Arroz o Remolacha y Semillas.", img: "https://i.ibb.co/rGV81zLX/Capi-veggie.png", ings: ["Muzzarella", "Tomate", "Lechuga", "Huevo frito", "Mayonesa"] },
-      { id: 32, n: "Capitana Marvel Veggie", p: 6800, d: "Lechuga, cebolla, pepino, cheddar y salsa Marvel. Opción: Choclo y Arroz o Remolacha y Semillas.", img: "https://i.ibb.co/fzVQzxgW/capi-marvel-gaga.png", ings: ["Lechuga", "Cebolla", "Pepino", "Cheddar", "Salsa Marvel"] },
-      { id: 33, n: "Dr Strange Veggie", p: 6800, d: "Extra cheddar, lechuga, tomate y mayonesa. Opción: Choclo y Arroz o Remolacha y Semillas.", img: "https://i.ibb.co/G4NBqTrn/Dr-strange.png", ings: ["Extra cheddar", "Lechuga", "Tomate", "Mayonesa"] },
-      { id: 34, n: "Hulk Veggie", p: 6800, d: "Cheddar, BBQ y cebolla caramelizada. Opción: Choclo y Arroz o Remolacha y Semillas.", img: "https://i.ibb.co/1GR38SQw/Iron-man.png", ings: ["Cheddar", "BBQ", "Cebolla caramelizada"] },
-      { id: 35, n: "Iron Man Veggie", p: 6800, d: "Cebolla caramelizada, BBQ y cheddar. Opción: Choclo y Arroz o Remolacha y Semillas.", img: "https://i.ibb.co/1GR38SQw/Iron-man.png", ings: ["Cebolla caramelizada", "BBQ", "Cheddar"] },
-      { id: 36, n: "Loki Veggie", p: 6800, d: "Lechuga, provolone, cheddar picante, mayonesa y cebolla. Opción: Choclo y Arroz o Remolacha y Semillas.", img: "https://i.ibb.co/xSZw4Rbg/Loki.png", ings: ["Lechuga", "Provolone", "Cheddar picante", "Mayonesa", "Cebolla"] },
-      { id: 37, n: "Natasha Veggie", p: 6800, d: "Cheddar. Opción: Choclo y Arroz o Remolacha y Semillas.", img: "https://i.ibb.co/mrK9yk4x/Natasha-veggie.png", ings: ["Cheddar"] },
-      { id: 38, n: "Peter Parker Veggie", p: 6800, d: "Cebolla caramelizada, cheddar y ketchup. Opción: Choclo y Arroz o Remolacha y Semillas.", img: "https://i.ibb.co/b5xZFfFX/Peter-veggie.png", ings: ["Cebolla caramelizada", "Cheddar", "Ketchup"] },
-      { id: 39, n: "Vision Veggie", p: 6800, d: "Lechuga, tomate, muzarella y aderezo de albahaca. Opción: Choclo y Arroz o Remolacha y Semillas.", img: "https://i.ibb.co/67CFDgxV/vision-veggie-rappi.png", ings: ["Lechuga", "Tomate", "Muzarella", "Aderezo de albahaca"] },
-      { id: 40, n: "Wanda Veggie", p: 6800, d: "Lechuga, tomate, muzarella, cebolla morada y palta. Opción: Choclo y Arroz o Remolacha y Semillas.", img: "https://i.ibb.co/4w6QvhMz/Wanda.png", ings: ["Lechuga", "Tomate", "Muzarella", "Cebolla morada", "Palta"] }
+      { id: 14, n: "Vegan Valkyria", p: 7800, d: "Medallón de lentejas, mayonesa vegana, lechuga, tomate, cebolla morada y pepino. Opción: Choclo y Arroz o Remolacha y Semillas.", img: "https://i.ibb.co/N6nbNCFs/valikyria.png", ings: ["Lentejas", "Mayo vegana", "Lechuga", "Tomate", "Cebolla morada", "Pepino"] },
+      { id: 30, n: "Black Panther Veggie", p: 7800, d: "Cebolla caramelizada, roquefort, mayonesa y honey mustard. Opción: Choclo y Arroz o Remolacha y Semillas.", img: "https://i.ibb.co/4nbNZ5Pg/Black-Panther.png", ings: ["Cebolla caramelizada", "Roquefort", "Mayonesa", "Honey mustard"] },
+      { id: 31, n: "Capitán América Veggie", p: 7800, d: "Muzzarella, tomate, lechuga, huevo frito y mayonesa. Opción: Choclo y Arroz o Remolacha y Semillas.", img: "https://i.ibb.co/rGV81zLX/Capi-veggie.png", ings: ["Muzzarella", "Tomate", "Lechuga", "Huevo frito", "Mayonesa"] },
+      { id: 32, n: "Capitana Marvel Veggie", p: 7800, d: "Lechuga, cebolla, pepino, cheddar y salsa Marvel. Opción: Choclo y Arroz o Remolacha y Semillas.", img: "https://i.ibb.co/fzVQzxgW/capi-marvel-gaga.png", ings: ["Lechuga", "Cebolla", "Pepino", "Cheddar", "Salsa Marvel"] },
+      { id: 33, n: "Dr Strange Veggie", p: 7800, d: "Extra cheddar, lechuga, tomate y mayonesa. Opción: Choclo y Arroz o Remolacha y Semillas.", img: "https://i.ibb.co/G4NBqTrn/Dr-strange.png", ings: ["Extra cheddar", "Lechuga", "Tomate", "Mayonesa"] },
+      { id: 34, n: "Hulk Veggie", p: 7800, d: "Cheddar, BBQ y cebolla caramelizada. Opción: Choclo y Arroz o Remolacha y Semillas.", img: "https://i.ibb.co/1GR38SQw/Iron-man.png", ings: ["Cheddar", "BBQ", "Cebolla caramelizada"] },
+      { id: 35, n: "Iron Man Veggie", p: 7800, d: "Cebolla caramelizada, BBQ y cheddar. Opción: Choclo y Arroz o Remolacha y Semillas.", img: "https://i.ibb.co/1GR38SQw/Iron-man.png", ings: ["Cebolla caramelizada", "BBQ", "Cheddar"] },
+      { id: 36, n: "Loki Veggie", p: 7800, d: "Lechuga, provolone, cheddar picante, mayonesa y cebolla. Opción: Choclo y Arroz o Remolacha y Semillas.", img: "https://i.ibb.co/xSZw4Rbg/Loki.png", ings: ["Lechuga", "Provolone", "Cheddar picante", "Mayonesa", "Cebolla"] },
+      { id: 37, n: "Natasha Veggie", p: 7800, d: "Cheddar. Opción: Choclo y Arroz o Remolacha y Semillas.", img: "https://i.ibb.co/mrK9yk4x/Natasha-veggie.png", ings: ["Cheddar"] },
+      { id: 38, n: "Peter Parker Veggie", p: 7800, d: "Cebolla caramelizada, cheddar y ketchup. Opción: Choclo y Arroz o Remolacha y Semillas.", img: "https://i.ibb.co/b5xZFfFX/Peter-veggie.png", ings: ["Cebolla caramelizada", "Cheddar", "Ketchup"] },
+      { id: 39, n: "Vision Veggie", p: 7800, d: "Lechuga, tomate, muzarella y aderezo de albahaca. Opción: Choclo y Arroz o Remolacha y Semillas.", img: "https://i.ibb.co/67CFDgxV/vision-veggie-rappi.png", ings: ["Lechuga", "Tomate", "Muzarella", "Aderezo de albahaca"] },
+      { id: 40, n: "Wanda Veggie", p: 7800, d: "Lechuga, tomate, muzarella, cebolla morada y palta. Opción: Choclo y Arroz o Remolacha y Semillas.", img: "https://i.ibb.co/4w6QvhMz/Wanda.png", ings: ["Lechuga", "Tomate", "Muzarella", "Cebolla morada", "Palta"] }
     ]
   },
   {
     cat: "Hamburguesas Smash",
     items: [
-      { id: 15, n: "Big Marvel", p: 9700, d: "Doble medallón smash 180gr, doble cheddar, lechuga, pepinos, cebolla y salsa Marvel en pan de papa.", img: "https://i.ibb.co/CpbtZ5JN/Big-Marvel-2.jpg", ings: ["Cheddar", "Lechuga", "Pepinos", "Cebolla", "Salsa Marvel"] },
-      { id: 16, n: "Chis Burger", p: 9300, d: "Doble medallón smash 180gr, extra cheddar y aderezo a elección en pan de papa.", img: "https://i.ibb.co/xrNhmwB/Cheese-2.jpg", ings: ["Extra Cheddar", "Aderezo a elección"] },
-      { id: 17, n: "Perfekta Smash", p: 9500, d: "Doble medallón smash 180gr, doble cheddar, lechuga, tomate y salsa Marvel en pan de papa.", img: "https://i.ibb.co/yHn0xtm/Perfekta-2.jpg", ings: ["Lechuga", "Tomate", "Cheddar", "Salsa Marvel"] },
-      { id: 18, n: "Stacker", p: 10200, d: "Doble medallón smash 180gr, extra cheddar, panceta y salsa Marvel en pan de papa.", img: "https://i.ibb.co/PZcGwdpx/Stacker-1.jpg", ings: ["Extra Cheddar", "Panceta", "Salsa Marvel"] }
+      { id: 15, n: "Big Marvel", p: 10700, d: "Doble medallón smash 180gr, doble cheddar, lechuga, pepinos, cebolla y salsa Marvel en pan de papa.", img: "https://i.ibb.co/CpbtZ5JN/Big-Marvel-2.jpg", ings: ["Cheddar", "Lechuga", "Pepinos", "Cebolla", "Salsa Marvel"] },
+      { id: 16, n: "Chis Burger", p: 10300, d: "Doble medallón smash 180gr, extra cheddar y aderezo a elección en pan de papa.", img: "https://i.ibb.co/xrNhmwB/Cheese-2.jpg", ings: ["Extra Cheddar", "Aderezo a elección"] },
+      { id: 17, n: "Perfekta Smash", p: 10500, d: "Doble medallón smash 180gr, doble cheddar, lechuga, tomate y salsa Marvel en pan de papa.", img: "https://i.ibb.co/yHn0xtm/Perfekta-2.jpg", ings: ["Lechuga", "Tomate", "Cheddar", "Salsa Marvel"] },
+      { id: 18, n: "Stacker", p: 11300, d: "Doble medallón smash 180gr, extra cheddar, panceta y salsa Marvel en pan de papa.", img: "https://i.ibb.co/PZcGwdpx/Stacker-1.jpg", ings: ["Extra Cheddar", "Panceta", "Salsa Marvel"] }
     ]
   },
   {
     cat: "Acompañamientos y Extras",
     items: [
-      { id: 19, n: "Sándwich Libertad", p: 6000, d: "Sándwich tostado con jamón, queso, lechuga, tomate y mayonesa.", img: "https://i.ibb.co/QqCz7g2/Libertad-1.jpg", ings: ["Jamón", "Queso", "Lechuga", "Tomate"] },
-      { id: 20, n: "Nuggets (10 unidades)", p: 8400, d: "10 unidades de Nuggets clásicos.", img: "https://i.ibb.co/WNj8CzDj/Nuggets-2.jpg", ings: [] },
-      { id: 21, n: "Combo Nuggets", p: 12600, d: "10 Nuggets acompañados con papas chicas.", img: "https://i.ibb.co/21dhfds8/Aros-de-cebolla-3.jpg", ings: ["Papas"] },
-      { id: 22, n: "Aros de cebolla (10 unidades)", p: 6700, d: "10 unidades de Aros de cebolla.", img: "https://i.ibb.co/21dhfds8/Aros-de-cebolla-3.jpg", ings: [] },
-      { id: 23, n: "Combo Aros", p: 8900, d: "10 Aros acompañados con papas chicas.", img: "https://i.ibb.co/21dhfds8/Aros-de-cebolla-3.jpg", ings: ["Papas"] },
-      { id: 24, n: "Papas Chicas", p: 6200, d: "Papas clásicas peso 180gr.", img: "https://i.ibb.co/9kTJXzVs/Papas.png", ings: [] },
-      { id: 25, n: "Papas Chicas con Cheddar", p: 7200, d: "Papas clásicas con salsa cheddar peso 180gr.", img: "https://i.ibb.co/8gPmfwg2/Papas-cheddar.png", ings: [] },
-      { id: 26, n: "Papas Grandes", p: 7300, d: "Papas clásicas peso 250gr.", img: "https://i.ibb.co/9kTJXzVs/Papas.png", ings: [] },
-      { id: 27, n: "Papas Cheddar Grandes", p: 8500, d: "papas grandes con cheddar 250gr + 1 dip cheddar.", img: "https://i.ibb.co/8gPmfwg2/Papas-cheddar.png", ings: [] },
-      { id: 28, n: "Marvel Box", p: 17000, d: "Box con 6 nuggets, 6 aros de cebolla acompañada de papas completas con panceta, verdeo, cheddar y bbq.", img: "https://i.ibb.co/xqLrKdV9/DSC-6847.jpg", ings: ["Cheddar", "Panceta", "Verdeo", "BBQ", "AROS DE CEBOLLA 6", "NUGGETS 6"] }
+      { id: 19, n: "Sándwich Libertad", p: 7500, d: "Sándwich tostado con jamón, queso, lechuga, tomate y mayonesa.", img: "https://i.ibb.co/QqCz7g2/Libertad-1.jpg", ings: ["Jamón", "Queso", "Lechuga", "Tomate"] },
+      { id: 20, n: "Nuggets (10 unidades)", p: 9300, d: "10 unidades de Nuggets clásicos.", img: "https://i.ibb.co/WNj8CzDj/Nuggets-2.jpg", ings: [] },
+      { id: 21, n: "Combo Nuggets", p: 13900, d: "10 Nuggets acompañados con papas chicas.", img: "https://i.ibb.co/21dhfds8/Aros-de-cebolla-3.jpg", ings: ["Papas"] },
+      { id: 22, n: "Aros de cebolla (10 unidades)", p: 7400, d: "10 unidades de Aros de cebolla.", img: "https://i.ibb.co/21dhfds8/Aros-de-cebolla-3.jpg", ings: [] },
+      { id: 23, n: "Combo Aros", p: 9800, d: "10 Aros acompañados con papas chicas.", img: "https://i.ibb.co/21dhfds8/Aros-de-cebolla-3.jpg", ings: ["Papas"] },
+      { id: 24, n: "Papas Chicas", p: 6900, d: "Papas clásicas peso 180gr.", img: "https://i.ibb.co/9kTJXzVs/Papas.png", ings: [] },
+      { id: 25, n: "Papas Chicas con Cheddar", p: 7900, d: "Papas clásicas con salsa cheddar peso 180gr.", img: "https://i.ibb.co/8gPmfwg2/Papas-cheddar.png", ings: [] },
+      { id: 26, n: "Papas Grandes", p: 8000, d: "Papas clásicas peso 250gr.", img: "https://i.ibb.co/9kTJXzVs/Papas.png", ings: [] },
+      { id: 27, n: "Papas Cheddar Grandes", p: 9400, d: "papas grandes con cheddar 250gr + 1 dip cheddar.", img: "https://i.ibb.co/8gPmfwg2/Papas-cheddar.png", ings: [] },
+      { id: 28, n: "Marvel Box", p: 18700, d: "Box con 6 nuggets, 6 aros de cebolla acompañada de papas completas con panceta, verdeo, cheddar y bbq.", img: "https://i.ibb.co/xqLrKdV9/DSC-6847.jpg", ings: ["Cheddar", "Panceta", "Verdeo", "BBQ", "AROS DE CEBOLLA 6", "NUGGETS 6"] }
     ]
   },
   {
     cat: "Ensaladas",
     items: [
-      { id: 29, n: "Ensalada Kang", p: 9500, d: "Tomate cherry, cebolla morada, salsa kang, lechuga, pollo, jamón, queso y huevo.", img: "https://i.ibb.co/TM2GDnzT/Ensalada.png", ings: ["Pollo", "Huevo", "Jamón", "Queso", "Salsa Kang"] }
+      { id: 29, n: "Ensalada Kang", p: 10500, d: "Tomate cherry, cebolla morada, salsa kang, lechuga, pollo, jamón, queso y huevo.", img: "https://i.ibb.co/TM2GDnzT/Ensalada.png", ings: ["Pollo", "Huevo", "Jamón", "Queso", "Salsa Kang"] }
     ]
   }
 ];
