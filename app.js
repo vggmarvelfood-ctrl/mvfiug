@@ -4714,29 +4714,30 @@ function admRenderPromos() {
   <!-- Día de venta -->
   <div>
     <div style="font-size:10px;color:#9ca3af;font-weight:700;margin-bottom:4px;">DÍA DE VENTA</div>
-    <select id="pf-dia"
+    <select id="pf-dia" onchange="admToggleRangoFechas()"
       style="width:100%;padding:9px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--white);font-size:13px;outline:none;box-sizing:border-box;">
       <option value="null">Todos los días</option>
       ${DIAS.map((d,i) => `<option value=\"${i}\">${d}</option>`).join('')}
+      <option value="fechas">Válida entre fechas (elegí abajo)</option>
     </select>
   </div>
 
   <!-- Rango de fechas -->
-  <div style="grid-column:1/-1;">
-    <div style="font-size:10px;color:#9ca3af;font-weight:700;margin-bottom:6px;">VÁLIDA ENTRE FECHAS (opcional)</div>
+  <div id="pf-rango-fechas-wrap" style="grid-column:1/-1;">
+    <div style="font-size:10px;color:#9ca3af;font-weight:700;margin-bottom:6px;" id="pf-rango-fechas-label">VÁLIDA ENTRE FECHAS (opcional)</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
       <div>
         <div style="font-size:9px;color:#6b7280;margin-bottom:3px;">DESDE</div>
-        <input id="pf-fecha-desde" type="date"
+        <input id="pf-fecha-desde" type="date" onchange="admSyncDiaConFechas()"
           style="width:100%;padding:9px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--white);font-size:12px;outline:none;box-sizing:border-box;color-scheme:dark;">
       </div>
       <div>
         <div style="font-size:9px;color:#6b7280;margin-bottom:3px;">HASTA</div>
-        <input id="pf-fecha-hasta" type="date"
+        <input id="pf-fecha-hasta" type="date" onchange="admSyncDiaConFechas()"
           style="width:100%;padding:9px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--white);font-size:12px;outline:none;box-sizing:border-box;color-scheme:dark;">
       </div>
     </div>
-    <div style="font-size:9px;color:#6b7280;margin-top:4px;">Sin fechas = disponible siempre. Con fechas = solo visible en ese rango.</div>
+    <div style="font-size:9px;color:#6b7280;margin-top:4px;">Sin fechas = disponible siempre. Con fechas = solo visible en ese rango, cualquier día de la semana.</div>
   </div>
 
 </div>
@@ -4792,6 +4793,36 @@ window.admPreviewPromoImg = () => {
  }
 };
 
+// Resalta el bloque de fechas cuando se elige "Válida entre fechas" en el
+// selector de día, para que quede claro que ahí hay que completar el rango.
+window.admToggleRangoFechas = () => {
+ const dia = document.getElementById('pf-dia')?.value;
+ const wrap = document.getElementById('pf-rango-fechas-wrap');
+ const label = document.getElementById('pf-rango-fechas-label');
+ if (!wrap || !label) return;
+ const esFechas = dia === 'fechas';
+ wrap.style.background = esFechas ? 'rgba(245,158,11,.06)' : '';
+ wrap.style.border = esFechas ? '1px solid rgba(245,158,11,.35)' : 'none';
+ wrap.style.borderRadius = esFechas ? '8px' : '0';
+ wrap.style.padding = esFechas ? '10px' : '0';
+ label.innerText = esFechas ? 'VÁLIDA ENTRE FECHAS (completá desde y hasta)' : 'VÁLIDA ENTRE FECHAS (opcional)';
+};
+
+// Si el admin completa una fecha mientras el día sigue en "Todos los días",
+// pasamos el selector a "Válida entre fechas" para que el guardado quede
+// coherente con lo que se ve en pantalla. Nunca pisa un día específico ya
+// elegido (ej: Martes + rango de fechas sigue siendo válido).
+window.admSyncDiaConFechas = () => {
+ const diaSel = document.getElementById('pf-dia');
+ const desde = document.getElementById('pf-fecha-desde')?.value;
+ const hasta = document.getElementById('pf-fecha-hasta')?.value;
+ if (!diaSel) return;
+ if ((desde || hasta) && diaSel.value === 'null') {
+ diaSel.value = 'fechas';
+ admToggleRangoFechas();
+ }
+};
+
 window.admAbrirFormPromo = (id) => {
  admPromoEditando = id;
  const form = document.getElementById('adm-promo-form');
@@ -4809,7 +4840,11 @@ window.admAbrirFormPromo = (id) => {
  document.getElementById('pf-porig').value = p.pOriginal || '';
  document.getElementById('pf-precio').value = p.p || '';
  document.getElementById('pf-img').value = p.img || '';
- document.getElementById('pf-dia').value = p.diaVenta !== null && p.diaVenta !== undefined ? p.diaVenta : 'null';
+ const sinDiaFijo = p.diaVenta === null || p.diaVenta === undefined;
+ const tieneFechas = !!(p.fechaDesde || p.fechaHasta);
+ document.getElementById('pf-dia').value = sinDiaFijo
+ ? (tieneFechas ? 'fechas' : 'null')
+ : p.diaVenta;
  admPreviewPromoImg();
  // Nuevos campos
  const _pfCod=document.getElementById('pf-codigo'); if(_pfCod)_pfCod.value=p.codigoPromo||'';
@@ -4817,6 +4852,7 @@ window.admAbrirFormPromo = (id) => {
  const _pfSeg=document.getElementById('pf-segunda-unidad'); if(_pfSeg){_pfSeg.checked=p.segundaUnidad===true;const sp=_pfSeg.nextElementSibling,dp=sp&&sp.nextElementSibling;if(sp)sp.style.background=_pfSeg.checked?'#10b981':'#333';if(dp)dp.style.left=_pfSeg.checked?'22px':'2px';}
  const _pfDesde=document.getElementById('pf-fecha-desde'); if(_pfDesde)_pfDesde.value=p.fechaDesde||'';
  const _pfHasta=document.getElementById('pf-fecha-hasta'); if(_pfHasta)_pfHasta.value=p.fechaHasta||'';
+ admToggleRangoFechas();
  } else {
  // Nueva promo
  title.innerText = 'NUEVA PROMO';
@@ -4824,6 +4860,7 @@ window.admAbrirFormPromo = (id) => {
  const el = document.getElementById(id); if (el) el.value = '';
  });
  document.getElementById('pf-dia').value = 'null';
+ admToggleRangoFechas();
  const _pfMet=document.getElementById('pf-metodo-pago'); if(_pfMet)_pfMet.value='todos';
  const _pfSeg=document.getElementById('pf-segunda-unidad'); if(_pfSeg){_pfSeg.checked=false;const sp=_pfSeg.nextElementSibling,dp=sp&&sp.nextElementSibling;if(sp)sp.style.background='#333';if(dp)dp.style.left='2px';}
  const prev = document.getElementById('pf-img-preview');
@@ -4847,7 +4884,7 @@ window.admGuardarFormPromo = async () => {
  const precio = parseInt(document.getElementById('pf-precio')?.value);
  const img = document.getElementById('pf-img')?.value.trim();
  const diaRaw = document.getElementById('pf-dia')?.value;
- const dia = diaRaw === 'null' ? null : parseInt(diaRaw);
+ const dia = (diaRaw === 'null' || diaRaw === 'fechas') ? null : parseInt(diaRaw);
  const codigoPromo   = (document.getElementById('pf-codigo')?.value || '').trim().toUpperCase();
  const metodoPago    = document.getElementById('pf-metodo-pago')?.value || 'todos';
  const segundaUnidad = document.getElementById('pf-segunda-unidad')?.checked === true;
@@ -4858,6 +4895,14 @@ window.admGuardarFormPromo = async () => {
  if (!nombre) { errEl.innerText = 'El nombre es obligatorio.'; return; }
  if (!pOrig || !precio) { errEl.innerText = 'Los precios son obligatorios.'; return; }
  if (precio > pOrig) { errEl.innerText = 'El precio promo no puede ser mayor al original.'; return; }
+ if (diaRaw === 'fechas' && !fechaDesde && !fechaHasta) {
+ errEl.innerText = 'Elegiste "Válida entre fechas": completá al menos la fecha Desde o Hasta.';
+ return;
+ }
+ if (fechaDesde && fechaHasta && fechaDesde > fechaHasta) {
+ errEl.innerText = 'La fecha "Desde" no puede ser posterior a "Hasta".';
+ return;
+ }
  errEl.innerText = '';
 
  let lecturaOk = true;
