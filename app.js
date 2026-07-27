@@ -222,6 +222,11 @@ window.aplicarCuponDesdeRegalos = (cuponId) => {
  }
 ];
 
+// Copia congelada de las promos originales, tal como vienen del código.
+// _aplicarPromosOverride() siempre reconstruye PROMOS_DATA a partir de esta
+// base + los overrides vigentes, en vez de ir mutando el array acumulativamente.
+const PROMOS_DATA_BASE = PROMOS_DATA.map(p => ({ ...p }));
+
 const SUC_MAP = {
  Centro: { n: "PELLEGRINI 1149, Rosario Centro", wsp: "5493413890000", mapImg: "https://i.ibb.co/Mxp9b7Tp/mapas-2026-estetica-nueva-1-Centro.png", locs: {
   "PELLEGRINI":          2300,
@@ -2247,30 +2252,46 @@ window.obtenerHorarioEstimado = (esDelivery) => {
 // ═══════════════════════════════════════════════════════════════════
 
 let _menuOverridesListenerActivo = false; // guard anti-doble-suscripción
+let _promosOverrideListenerActivo = false; // guard anti-doble-suscripción (promos)
 
 // ── Helper: aplica overrides de promos al array PROMOS_DATA ──────────────
-function _aplicarPromosOverride(ov) {
-  if (!ov || typeof ov !== 'object') return;
+// Reconstruye PROMOS_DATA desde cero (PROMOS_DATA_BASE + overrides) cada vez
+// que se llama, en vez de ir mutando el array acumulativamente. Esto es lo
+// que hace seguro llamarla repetidas veces desde un onSnapshot: una promo
+// custom borrada en Firestore desaparece también acá, y una editada nunca
+// arrastra un valor viejo de una vuelta anterior.
+function _aplicarPromosOverride(ovInput) {
+  const ov = (ovInput && typeof ovInput === 'object') ? ovInput : {};
   const CAMPOS_PROMO = ['p', 'pOriginal', 'diaVenta', 'n', 'd', 'img'];
 
-  // 1. Actualizar promos base existentes
-  PROMOS_DATA.forEach(p => {
+  // 1. Partir siempre de la base original y reaplicar overrides vigentes
+  const reconstruido = PROMOS_DATA_BASE.map(base => {
+    const p = { ...base };
     const over = ov[p.id];
-    if (!over) return;
-    CAMPOS_PROMO.forEach(campo => {
-      if (over[campo] !== undefined) p[campo] = over[campo];
-    });
-    if (over.activo === false) p._oculta = true;
-    else delete p._oculta; // reactivar si el admin la volvió a encender
+    if (over) {
+      CAMPOS_PROMO.forEach(campo => {
+        if (over[campo] !== undefined) p[campo] = over[campo];
+      });
+      if (over.activo === false) p._oculta = true;
+      else delete p._oculta;
+    } else {
+      delete p._oculta; // sin override → estado original (visible)
+    }
+    return p;
   });
 
-  // 2. Agregar promos custom creadas solo en Firebase (no están en PROMOS_DATA)
+  // 2. Agregar promos custom creadas solo en Firebase (no están en la base)
   Object.keys(ov).forEach(key => {
     const over = ov[key];
     if (!over || !over._custom || over.activo === false) return;
-    if (PROMOS_DATA.find(p => p.id === key)) return; // no duplicar
-    PROMOS_DATA.push({ ...over, id: key });
+    if (reconstruido.find(p => p.id === key)) return; // no duplicar
+    reconstruido.push({ ...over, id: key });
   });
+
+  // 3. Reemplazar el contenido de PROMOS_DATA sin romper la referencia
+  //    (otros módulos guardan una referencia directa a este array)
+  PROMOS_DATA.length = 0;
+  PROMOS_DATA.push(...reconstruido);
 }
 
 // ── Helper: aplica overrides de cupones a CUPONES_DEL_DIA ────────────────
@@ -2327,30 +2348,35 @@ async function cargarMenuOverrides() {
     }
   }
 
-  // ── 2. Cargar promos y cupones EN PARALELO ────────────────────────────
-  // Promise.allSettled garantiza que un fallo de permisos en una consulta
-  // no cancela la otra ni detiene el flujo de la app.
-  const [resultPromos, resultCupones] = await Promise.allSettled([
-    db.collection('config_menu').doc('promos_override').get(),
+  // ── 2. onSnapshot de promos (se registra UNA SOLA VEZ) ────────────────
+  // Antes era un .get() de una sola vez: una promo nueva/editada/borrada no
+  // se veía en pestañas ya abiertas hasta recargar la página. Con
+  // onSnapshot llega sola, igual que los overrides de precios.
+  if (!_promosOverrideListenerActivo) {
+    try {
+      db.collection('config_menu').doc('promos_override')
+        .onSnapshot(
+          snap => {
+            _aplicarPromosOverride(snap.exists ? snap.data() : {});
+            console.log('[MenuOverrides] promos_override actualizado ✓');
+            if (typeof renderPromosCatalog === 'function') renderPromosCatalog();
+          },
+          err => {
+            console.warn('[MenuOverrides] onSnapshot error (promos_override):', err.code || err.message);
+          }
+        );
+      _promosOverrideListenerActivo = true;
+    } catch (e) {
+      console.warn('[MenuOverrides] No se pudo registrar listener de promos_override:', e.message);
+    }
+  }
+
+  // ── 3. Cargar cupones (lectura única) ──────────────────────────────────
+  const [resultCupones] = await Promise.allSettled([
     db.collection('config_menu').doc('cupones_override').get(),
   ]);
 
   clearTimeout(_fallbackTimer); // Firebase respondió → cancelar fallback
-
-  // ── 3. Aplicar overrides de promos ───────────────────────────────────
-  if (resultPromos.status === 'fulfilled') {
-    const snap = resultPromos.value;
-    if (snap.exists) {
-      _aplicarPromosOverride(snap.data());
-      console.log('[MenuOverrides] promos_override cargado ✓');
-    } else {
-      console.log('[MenuOverrides] promos_override: documento vacío, usando datos base.');
-    }
-  } else {
-    // Permisos insuficientes u error de red: PROMOS_DATA hardcodeado
-    // permanece intacto → el cliente sigue viendo las promos base.
-    console.warn('[MenuOverrides] promos_override no disponible:', resultPromos.reason?.code || resultPromos.reason?.message);
-  }
 
   // ── 4. Aplicar overrides de cupones ──────────────────────────────────
   if (resultCupones.status === 'fulfilled') {
@@ -4834,13 +4860,17 @@ window.admGuardarFormPromo = async () => {
  if (precio > pOrig) { errEl.innerText = 'El precio promo no puede ser mayor al original.'; return; }
  errEl.innerText = '';
 
- let ov = {};
- try { const s = await db.collection('config_menu').doc('promos_override').get(); if (s.exists) ov = s.data(); } catch(e) {}
+ let lecturaOk = true;
+ try { await db.collection('config_menu').doc('promos_override').get(); } catch(e) { lecturaOk = false; }
+ if (!lecturaOk) {
+ errEl.innerText = 'No se pudo leer el estado actual de las promos. No se guardó nada — reintentá.';
+ return;
+ }
 
  const isNueva = !admPromoEditando;
  const id = admPromoEditando || ('custom-' + Date.now());
 
- ov[id] = {
+ const nuevaPromo = {
  n: nombre, d: desc, pOriginal: pOrig, p: precio,
  img: img || '', diaVenta: dia, cat: 'Promos', ings: [],
  activo: true,
@@ -4853,7 +4883,9 @@ window.admGuardarFormPromo = async () => {
  };
 
  try {
- await db.collection('config_menu').doc('promos_override').set(ov, { merge: false });
+ // merge:true -> solo toca la clave `id`, nunca pisa el resto del documento
+ // aunque la promo que se está editando/creando sea la única que conocemos localmente.
+ await db.collection('config_menu').doc('promos_override').set({ [id]: nuevaPromo }, { merge: true });
 
  // Actualizar PROMOS_DATA en memoria si es edición de promo base
  if (admPromoEditando) {
@@ -4869,38 +4901,41 @@ window.admGuardarFormPromo = async () => {
 };
 
 window.admTogglePromo = async (id) => {
- let ov = {};
- try { const s = await db.collection('config_menu').doc('promos_override').get(); if (s.exists) ov = s.data(); } catch(e) {}
- const cur = ov[id] || {};
- const nuevoActivo = cur.activo === false ? true : false;
- ov[id] = { ...cur, activo: nuevoActivo };
+ let cur = {};
  try {
- await db.collection('config_menu').doc('promos_override').set(ov, { merge: false });
+ const s = await db.collection('config_menu').doc('promos_override').get();
+ if (s.exists && s.data()[id]) cur = s.data()[id];
+ } catch(e) { alert('No se pudo leer el estado actual. Reintentá.'); return; }
+ const nuevoActivo = cur.activo === false ? true : false;
+ try {
+ // merge:true -> solo toca la clave `id`, el resto del documento queda intacto
+ await db.collection('config_menu').doc('promos_override').set(
+ { [id]: { ...cur, activo: nuevoActivo } },
+ { merge: true }
+ );
  await admCargarPromos();
  } catch(e) { alert('Error: ' + e.message); }
 };
 
 window.admEliminarPromo = async (id) => {
  if (!confirm('¿Eliminar esta promo permanentemente?')) return;
- let ov = {};
- try { const s = await db.collection('config_menu').doc('promos_override').get(); if (s.exists) ov = s.data(); } catch(e) {}
- delete ov[id];
  try {
- await db.collection('config_menu').doc('promos_override').set(ov, { merge: false });
+ // FieldValue.delete() borra solo esa clave del documento, nunca reemplaza el resto
+ await db.collection('config_menu').doc('promos_override').set(
+ { [id]: firebase.firestore.FieldValue.delete() },
+ { merge: true }
+ );
  await admCargarPromos();
  } catch(e) { alert('Error: ' + e.message); }
 };
 
 window.admResetPromo = async (id) => {
  if (!confirm('¿Restaurar esta promo a sus valores originales?')) return;
- let ov = {};
- try { const s = await db.collection('config_menu').doc('promos_override').get(); if (s.exists) ov = s.data(); } catch(e) {}
- delete ov[id];
  try {
- await db.collection('config_menu').doc('promos_override').set(ov, { merge: false });
- // Restaurar en memoria
- const base = PROMOS_DATA.find(p => p.id === id);
- if (base) { /* ya está en PROMOS_DATA original */ }
+ await db.collection('config_menu').doc('promos_override').set(
+ { [id]: firebase.firestore.FieldValue.delete() },
+ { merge: true }
+ );
  await admCargarPromos();
  } catch(e) { alert('Error: ' + e.message); }
 };
