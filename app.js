@@ -2042,7 +2042,13 @@ function obtenerCuponDelDia() {
  if (bannerMartes) bannerMartes.classList.add('hidden');
  }
 
- const _hoyStr = _hoyDate.toISOString().slice(0,10); // 'YYYY-MM-DD'
+ // OJO: no usar _hoyDate.toISOString() acá — convierte a UTC, y como
+ // Argentina es UTC-3, desde ~21:00 hora local ya cae en el día siguiente
+ // en UTC. Eso corría las fechas "Desde/Hasta" varias horas antes de lo
+ // esperado. Armamos el string 'YYYY-MM-DD' con la fecha LOCAL del navegador.
+ const _hoyStr = _hoyDate.getFullYear() + '-' +
+   String(_hoyDate.getMonth() + 1).padStart(2, '0') + '-' +
+   String(_hoyDate.getDate()).padStart(2, '0');
  const promosVisibles = PROMOS_DATA.filter(item => {
  if (item._oculta) return false;
  // Validar rango de fechas si existe
@@ -2262,7 +2268,7 @@ let _promosOverrideListenerActivo = false; // guard anti-doble-suscripción (pro
 // arrastra un valor viejo de una vuelta anterior.
 function _aplicarPromosOverride(ovInput) {
   const ov = (ovInput && typeof ovInput === 'object') ? ovInput : {};
-  const CAMPOS_PROMO = ['p', 'pOriginal', 'diaVenta', 'n', 'd', 'img'];
+  const CAMPOS_PROMO = ['p', 'pOriginal', 'diaVenta', 'n', 'd', 'img', 'fechaDesde', 'fechaHasta', 'codigoPromo', 'metodoPago', 'segundaUnidad'];
 
   // 1. Partir siempre de la base original y reaplicar overrides vigentes
   const reconstruido = PROMOS_DATA_BASE.map(base => {
@@ -4759,13 +4765,25 @@ function admRenderPromos() {
  const activo = p.activo !== false;
  const diaLabel = p.diaVenta !== null && p.diaVenta !== undefined ? DIAS[p.diaVenta] : 'Todos los días';
  const descuento = p.pOriginal > p.p ? Math.round((1 - p.p / p.pOriginal) * 100) : 0;
+ // Estado de vigencia según fecha LOCAL de hoy (misma lógica que renderPromosCatalog)
+ const _hoy = new Date();
+ const _hoyStrAdm = _hoy.getFullYear() + '-' + String(_hoy.getMonth()+1).padStart(2,'0') + '-' + String(_hoy.getDate()).padStart(2,'0');
+ let vigencia = '';
+ if (p.fechaDesde && _hoyStrAdm < p.fechaDesde) {
+ vigencia = `<span style="background:rgba(59,130,246,.15);color:#60a5fa;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;"> Programada — arranca ${p.fechaDesde.split('-').reverse().join('/')}</span>`;
+ } else if (p.fechaHasta && _hoyStrAdm > p.fechaHasta) {
+ vigencia = `<span style="background:rgba(107,114,128,.2);color:#9ca3af;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;"> Finalizada el ${p.fechaHasta.split('-').reverse().join('/')}</span>`;
+ } else if (p.fechaDesde || p.fechaHasta) {
+ vigencia = `<span style="background:rgba(16,185,129,.15);color:#10b981;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;"> Vigente ahora</span>`;
+ }
  html += `
  <div style="background:var(--surface);border:1px solid ${activo ? 'var(--border)' : '#ef444444'};border-radius:12px;margin-bottom:10px;overflow:hidden;"><div style="display:flex;gap:10px;padding:12px;">${(p.img && p.img !== 'undefined') ? `<img src="${p.img}" loading="lazy" decoding="async" width="60" height="60" style="width:60px;height:60px;object-fit:cover;border-radius:8px;flex-shrink:0;background:#333;" onerror="this.style.display='none'">` : `<div style="width:60px;height:60px;border-radius:8px;flex-shrink:0;background:#333;font-size:20px;display:flex;align-items:center;justify-content:center;"></div>`}<div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:800;color:${activo ? 'var(--white)' : '#666'};margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.n}</div><div style="font-size:10px;color:#9ca3af;margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${p.d || ''}</div><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><span style="font-size:11px;color:#9ca3af;text-decoration:line-through;">$${(p.pOriginal||0).toLocaleString('es-AR')}</span><span style="font-size:14px;font-weight:800;color:#10b981;">$${(p.p||0).toLocaleString('es-AR')}</span> ${descuento > 0 ? `<span style="background:rgba(16,185,129,.15);color:#10b981;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;">-${descuento}%</span>` : ''}
  <span style="background:rgba(245,158,11,.12);color:var(--primary);font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;"> ${diaLabel}</span>
  ${p.codigoPromo ? `<span style="background:rgba(139,92,246,.18);color:#a78bfa;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;font-family:monospace;">${p.codigoPromo}</span>` : ""}
  ${p.segundaUnidad ? `<span style="background:rgba(16,185,129,.12);color:#10b981;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;">50% 2da ud.</span>` : ""}
  ${p.metodoPago && p.metodoPago !== "todos" ? `<span style="background:rgba(59,130,246,.12);color:#60a5fa;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;">${p.metodoPago==="efectivo"?" Efectivo":p.metodoPago==="mp"?" MP":p.metodoPago}</span>` : ""}
- ${(p.fechaDesde || p.fechaHasta) ? `<span style="background:rgba(245,158,11,.1);color:var(--primary);font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;"> ${p.fechaDesde||"?"} → ${p.fechaHasta||"?"}</span>` : ""}</div></div><div style="display:flex;flex-direction:column;align-items:center;gap:4px;"><label class="adm-toggle" title="${activo ? 'Desactivar' : 'Activar'}"><input type="checkbox" ${activo ? 'checked' : ''} onchange="admTogglePromo('${p.id}')"><span class="adm-toggle-slider"></span></label><span style="font-size:9px;color:${activo ? '#10b981' : '#ef4444'};font-weight:700;">${activo ? 'ON' : 'OFF'}</span></div></div><div style="display:flex;gap:0;border-top:1px solid var(--border);"><button onclick="admAbrirFormPromo('${p.id}')"
+ ${(p.fechaDesde || p.fechaHasta) ? `<span style="background:rgba(245,158,11,.1);color:var(--primary);font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;"> ${p.fechaDesde||"?"} → ${p.fechaHasta||"?"}</span>` : ""}
+ ${vigencia}</div></div><div style="display:flex;flex-direction:column;align-items:center;gap:4px;"><label class="adm-toggle" title="${activo ? 'Desactivar' : 'Activar'}"><input type="checkbox" ${activo ? 'checked' : ''} onchange="admTogglePromo('${p.id}')"><span class="adm-toggle-slider"></span></label><span style="font-size:9px;color:${activo ? '#10b981' : '#ef4444'};font-weight:700;">${activo ? 'ON' : 'OFF'}</span></div></div><div style="display:flex;gap:0;border-top:1px solid var(--border);"><button onclick="admAbrirFormPromo('${p.id}')"
  style="flex:1;padding:8px;background:transparent;border:none;border-right:1px solid var(--border);color:var(--primary);font-size:12px;font-weight:700;cursor:pointer;"> Editar
  </button> ${!p._base ? `
  <button onclick="admEliminarPromo('${p.id}')"
