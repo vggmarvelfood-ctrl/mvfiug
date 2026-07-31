@@ -4,7 +4,7 @@ import {
  getFirestore, collection, doc,
  getDoc, getDocs, addDoc, updateDoc, deleteDoc, setDoc,
  onSnapshot, query, where, orderBy, limit,
- serverTimestamp, arrayUnion, arrayRemove, increment,
+ serverTimestamp, arrayUnion, arrayRemove, increment, deleteField,
  writeBatch  // ✅ FIX: importar writeBatch aquí en lugar de con import() dinámico en commit()
 } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
 import {
@@ -149,7 +149,7 @@ try {
  // Compatibilidad con firebase.firestore.FieldValue.serverTimestamp()
  window.firebase = {
   firestore: {
-   FieldValue: { serverTimestamp: () => serverTimestamp(), arrayUnion: (...items) => arrayUnion(...items), arrayRemove: (...items) => arrayRemove(...items), increment: (n) => increment(n) }
+   FieldValue: { serverTimestamp: () => serverTimestamp(), arrayUnion: (...items) => arrayUnion(...items), arrayRemove: (...items) => arrayRemove(...items), increment: (n) => increment(n), delete: () => deleteField() }
   }
  };
 
@@ -518,5 +518,5 @@ try {
 } catch(e) {
  console.error('[Firebase] Error de inicialización modular:', e);
  window.db = null;
- window.firebase = { firestore: { FieldValue: { serverTimestamp: () => null, arrayUnion: (...i) => i, arrayRemove: (...i) => i, increment: (n) => n } } };
+ window.firebase = { firestore: { FieldValue: { serverTimestamp: () => null, arrayUnion: (...i) => i, arrayRemove: (...i) => i, increment: (n) => n, delete: () => undefined } } };
 }
