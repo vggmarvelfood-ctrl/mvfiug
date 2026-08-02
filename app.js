@@ -1118,7 +1118,7 @@ async function _procesarPedidoImpl() {
  if(isDelivery && !dir) return alert("Completá la dirección (calle y número) para el envío.");
  if(isDelivery && !loc) return alert("Completá la localidad (Rosario, Funes, Gálvez...) para el envío.");
  // Validación de formato (refuerzo server-side aunque el botón ya lo controla)
- if(isDelivery && dir && !validarDireccion(dir.trim())) return alert('La dirección debe tener el formato "Calle Número" (ej: Pellegrini 1149)');
+ if(isDelivery && dir && !validarDireccion(dir.trim())) return alert('Completá la dirección con calle y altura (ej: Pellegrini 1149)');
  if(tel && !validarTelefono(tel.trim())) return alert('El teléfono no es válido. Ingresá un número de WhatsApp argentino (ej: 3416107498)');
 
  const pago = document.getElementById('p-metodo').value;
@@ -1655,6 +1655,9 @@ window.detectarZonaDesdeTexto = function() {
  validarDatosEnvio();
  return;
  }
+ // Feedback inmediato: el cliente ve que algo está pasando en vez de
+ // pensar que la página se trabó mientras se espera la geocodificación.
+ _mostrarZonaVerificando();
  // Intentar geocodificar si hay función disponible
  if (typeof _geocodificar === 'function' && (dir || loc)) {
  try {
@@ -1742,6 +1745,19 @@ async function _detectarZonaCheckout(lat, lng) {
 }
 
 // Mostrar/ocultar indicador de zona detectada
+// Estado intermedio: se muestra mientras se espera la respuesta de
+// geocodificación, para que el cliente vea que la app está trabajando
+// y no piense que se trabó.
+function _mostrarZonaVerificando() {
+ const box = document.getElementById('zona-detectada-box');
+ if (!box) return;
+ box.style.display = 'block';
+ box.style.background = 'rgba(255,255,255,0.06)';
+ box.style.border = '1px solid rgba(255,255,255,0.15)';
+ box.style.color = '#9ca3af';
+ box.innerHTML = '⏳ Verificando zona de cobertura...';
+}
+
 function _mostrarZonaBox(sucursal, detalle, precio) {
  const box = document.getElementById('zona-detectada-box');
  if (!box) return;
@@ -1798,9 +1814,19 @@ window.aplicarZonaOverride = function(sucursal) {
 // Validar datos y habilitar/deshabilitar botón final
 // ── Validadores de formato (checkout) ─────────────────────────────────────
 function validarDireccion(dir) {
-  // Formato esperado: "Calle Número" (ej: "Pellegrini 1149")
-  const regex = /^[A-Za-záéíóúñÑ\s]+ \d+$/;
-  return regex.test(dir.trim());
+  // ANTES: regex rígida /^[A-Za-záéíóúñÑ\s]+ \d+$/ que solo aceptaba
+  // "Calle Número" exacto — rechazaba direcciones reales como
+  // "Av. Pellegrini 1149", "Ruta 9 Km 3", "San Martín 100, esq. Mitre".
+  // Esto dejaba el botón de enviar deshabilitado sin que el cliente
+  // entendiera bien el motivo (sensación de "no me deja avanzar").
+  // AHORA: solo pide que tenga longitud mínima, al menos una letra y
+  // al menos un número — suficiente para descartar campos vacíos o
+  // basura, sin rechazar formatos válidos.
+  const d = (dir || '').trim();
+  if (d.length < 4) return false;
+  const tieneLetra = /[A-Za-záéíóúñÑ]/.test(d);
+  const tieneNumero = /\d/.test(d);
+  return tieneLetra && tieneNumero;
 }
 
 function validarTelefono(tel) {
@@ -1834,7 +1860,7 @@ window.validarDatosEnvio = function() {
     const loc = (document.getElementById('c-loc')?.value || '').trim();
 
     if (!dir) razones.push('dirección');
-    else if (!validarDireccion(dir)) razones.push('dirección en formato "Calle Número"');
+    else if (!validarDireccion(dir)) razones.push('dirección (calle y altura)');
 
     if (!loc) razones.push('localidad');
     if (!_checkoutSucursalDetectada && !document.getElementById('main-sucursal')?.value) razones.push('zona de cobertura');
@@ -1846,13 +1872,20 @@ window.validarDatosEnvio = function() {
     btn.style.background = 'var(--primary)';
     btn.style.color = '#000';
     btn.style.cursor = 'pointer';
-    if (hint) hint.textContent = '';
+    if (hint) { hint.textContent = ''; hint.style.color = ''; hint.style.fontWeight = ''; }
   } else {
     btn.disabled = true;
     btn.style.background = '#333';
     btn.style.color = '#666';
     btn.style.cursor = 'not-allowed';
-    if (hint) hint.textContent = 'Completá: ' + razones.join(', ');
+    if (hint) {
+      // MEJORA: antes era texto gris de 11px, muy fácil de pasar por alto
+      // en mobile — el cliente sentía que "no lo dejaba avanzar" sin saber
+      // por qué. Ahora se resalta en color de alerta y en negrita.
+      hint.textContent = 'Completá: ' + razones.join(', ');
+      hint.style.color = '#f59e0b';
+      hint.style.fontWeight = '800';
+    }
   }
 };
 
