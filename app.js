@@ -1088,7 +1088,7 @@ window.upsellAdd = function(productId) {
  }
 };
 
-window.procesarPedido = async () => {
+async function _procesarPedidoImpl() {
  if (carrito.length === 0) return alert("Agregá productos a tu pedido primero.");
 
  const sucId = document.getElementById('main-sucursal').value;
@@ -1448,6 +1448,39 @@ window.procesarPedido = async () => {
       alert("Error al guardar el pedido: " + e.message);
     }
   }
+}
+
+// ── LOCK ANTI-DOBLE-ENVÍO ────────────────────────────────────────────────
+// Evita que un doble-tap / doble-click en "Enviar Pedido" dispare dos
+// ejecuciones en paralelo de _procesarPedidoImpl mientras la primera
+// todavía está esperando la auth anónima o el .add() a Firestore.
+// Esta era la causa raíz de los pedidos duplicados (mismo cliente, mismo
+// horario, mismos ítems, dos IDs distintos).
+window.procesarPedido = async () => {
+ if (window._procesandoPedidoEnCurso) return; // ya hay un envío en curso, ignorar el tap extra
+
+ window._procesandoPedidoEnCurso = true;
+ const _btn = document.getElementById('btn-final-enviar');
+ const _btnTextoOrig = _btn ? _btn.innerText : '';
+ if (_btn) {
+   _btn.disabled = true;
+   _btn.style.cursor = 'not-allowed';
+   _btn.innerText = 'Enviando...';
+ }
+
+ try {
+   await _procesarPedidoImpl();
+ } finally {
+   window._procesandoPedidoEnCurso = false;
+   if (_btn) {
+     _btn.innerText = _btnTextoOrig || 'Enviar Pedido';
+     // Re-evaluar si el botón debe quedar habilitado con los datos actuales
+     // (si el pedido se envió con éxito, el carrito ya se vació y quedará
+     // deshabilitado hasta el próximo pedido; si fue un error de validación,
+     // vuelve a habilitarse si corresponde).
+     if (typeof validarDatosEnvio === 'function') validarDatosEnvio();
+   }
+ }
 };
 
 // ═══════════════════════════════════════════════════════════════════
