@@ -231,7 +231,6 @@ async function _geocodificar(direccion, localidad) {
     contextos.push('Santa Fe Argentina');
   }
 
-  // Función helper para guardar en caché y retornar
   function _saveAndReturn(coords) {
     try {
       const cache2 = JSON.parse(localStorage.getItem('mf_geo_cache') || '{}');
@@ -241,40 +240,56 @@ async function _geocodificar(direccion, localidad) {
     return coords;
   }
 
-  for (const contexto of contextos) {
+  // MEJORA — Antes se probaba cada servicio y cada variante de contexto en
+  // cadena (hasta 4 llamadas secuenciales x 6s de timeout = ~24s en el peor
+  // caso). Ahora se disparan TODAS las combinaciones en paralelo y se toma
+  // la primera que responda con un resultado válido (Promise.any), con un
+  // timeout más corto por llamada. Peor caso real: ~4s en vez de ~24s.
+  const TIMEOUT_MS = 4000;
+
+  async function _intentoPhoton(contexto) {
     const q = encodeURIComponent(direccion + ' ' + contexto);
-    // Intento 1: Photon (Komoot) — muy bueno para Argentina
-    try {
-      const r = await fetch(`https://photon.komoot.io/api/?q=${q}&limit=3&bbox=${bbox}`, { signal: AbortSignal.timeout(6000) });
-      if (r.ok) {
-        const d = await r.json();
-        if (d.features && d.features.length) {
-          // Preferir resultados dentro del bbox
-          const valido = d.features.find(f => {
-            const [lng, lat] = f.geometry.coordinates;
-            return lat >= -33.26 && lat <= -32.7 && lng >= -61.3 && lng <= -60.2;
-          });
-          if (valido) {
-            const [lng, lat] = valido.geometry.coordinates;
-            return _saveAndReturn({ lat, lng });
-          }
-        }
-      }
-    } catch(e) {}
-    // Intento 2: Nominatim (OSM) — más lento pero muy completo
-    try {
-      const q2 = encodeURIComponent(direccion + ', ' + contexto);
-      const r = await fetch(`https://nominatim.openstreetmap.org/search?q=${q2}&format=json&limit=3&countrycodes=ar&viewbox=-61.3,-32.7,-60.2,-33.26&bounded=1`, {
-        signal: AbortSignal.timeout(6000),
-        headers: { 'Accept-Language': 'es', 'User-Agent': 'MarvelFood/1.0' }
+    const r = await fetch(`https://photon.komoot.io/api/?q=${q}&limit=3&bbox=${bbox}`, { signal: AbortSignal.timeout(TIMEOUT_MS) });
+    if (!r.ok) throw new Error('photon_bad_status');
+    const d = await r.json();
+    if (d.features && d.features.length) {
+      const valido = d.features.find(f => {
+        const [lng, lat] = f.geometry.coordinates;
+        return lat >= -33.26 && lat <= -32.7 && lng >= -61.3 && lng <= -60.2;
       });
-      if (r.ok) {
-        const d = await r.json();
-        if (d && d.length) return _saveAndReturn({ lat: parseFloat(d[0].lat), lng: parseFloat(d[0].lon) });
+      if (valido) {
+        const [lng, lat] = valido.geometry.coordinates;
+        return { lat, lng };
       }
-    } catch(e) {}
+    }
+    throw new Error('photon_sin_resultado');
   }
-  return null;
+
+  async function _intentoNominatim(contexto) {
+    const q2 = encodeURIComponent(direccion + ', ' + contexto);
+    const r = await fetch(`https://nominatim.openstreetmap.org/search?q=${q2}&format=json&limit=3&countrycodes=ar&viewbox=-61.3,-32.7,-60.2,-33.26&bounded=1`, {
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+      headers: { 'Accept-Language': 'es', 'User-Agent': 'MarvelFood/1.0' }
+    });
+    if (!r.ok) throw new Error('nominatim_bad_status');
+    const d = await r.json();
+    if (d && d.length) return { lat: parseFloat(d[0].lat), lng: parseFloat(d[0].lon) };
+    throw new Error('nominatim_sin_resultado');
+  }
+
+  const intentos = [];
+  contextos.forEach(ctx => {
+    intentos.push(_intentoPhoton(ctx));
+    intentos.push(_intentoNominatim(ctx));
+  });
+
+  try {
+    const coords = await Promise.any(intentos);
+    return _saveAndReturn(coords);
+  } catch (e) {
+    // Promise.any lanza AggregateError solo si TODOS los intentos fallaron
+    return null;
+  }
 }
 
 function _mostrarAlertaZona(sucSugerida, textoDir, sucActualId, razon) {
@@ -318,16 +333,22 @@ async function verificarDireccion(direccion, localidadOverride) {
  const { lat, lng } = coords;
  _coordsVerificadas = { lat, lng };
 
- // BUGFIX: _gfZonesCache nunca existió (era un nombre incorrecto; la variable
- // real es _gfFireCache, privada del IIFE de geo-fencing.js). La condición
- // siempre era falsa y el bloque Turf nunca corría. Ahora usamos la API pública
- // window.determinarSucursal() que ya encapsula Firebase+Turf+fallback.
+ // BUGFIX: antes ambas ramas de este if hacían exactamente lo mismo
+ // (el fallback estático), así que esta verificación de seguridad nunca
+ // usaba las zonas dinámicas de Firebase/Turf y podía contradecir —con
+ // polígonos desactualizados— lo que el sistema dinámico (_detectarZonaCheckout
+ // en app.js) ya había detectado y corregido silenciosamente.
  let enZonaActual, sucCubre;
  if (typeof window.determinarSucursal === 'function') {
- // Llamada asíncrona ya resuelta arriba vía validarPedidoParaEnvio;
- // aquí usamos el fallback estático síncrono para no duplicar awaits.
+ try {
+ const resultado = await window.determinarSucursal(lat, lng);
+ sucCubre = resultado && resultado.sucursal;
+ enZonaActual = sucCubre === sucId;
+ } catch (e) {
+ // Si falla la consulta dinámica, recién ahí caer al polígono estático
  enZonaActual = puntoDentroDePoligono(lat, lng, ZONA_POLIGONOS[sucId]);
  sucCubre = sucursalParaPunto(lat, lng);
+ }
  } else {
  enZonaActual = puntoDentroDePoligono(lat, lng, ZONA_POLIGONOS[sucId]);
  sucCubre = sucursalParaPunto(lat, lng);
