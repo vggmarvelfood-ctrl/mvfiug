@@ -1588,6 +1588,15 @@ async function _procesarPedidoImpl() {
  t += `*Subtotal:* $${sub.toLocaleString('es-AR')}%0A`;
  if(envio > 0) t += `*Envío:* $${envio.toLocaleString('es-AR')}%0A`;
  if(montoDescuento > 0) t += `*Descuento (${detalleCupon}):* -$${montoDescuento.toLocaleString('es-AR')}%0A`;
+ // Promos automáticas por combinación (ej: 30% OFF en burgers por llevar
+ // papas) — se detalla el nombre de la promo y cuántas unidades tuvieron
+ // el descuento, para que quede claro en la comanda qué se aplicó y evitar
+ // confusiones al preparar el pedido.
+ if (promosComboAplicadas && promosComboAplicadas.length > 0) {
+ promosComboAplicadas.forEach(p => {
+ t += `*Promo aplicada:* ${p.nombre} (${p.unidades} ud.) -$${p.monto.toLocaleString('es-AR')}%0A`;
+ });
+ }
  t += `%0A*TOTAL FINAL: $${total.toLocaleString('es-AR')}*%0A`;
 
  document.body.style.cursor = 'default';
@@ -2330,8 +2339,9 @@ window.abrirPromoComboModal = function(promoId) {
  const burgers = (promo.productosElegibles || [])
  .map(id => _buscarProductoEnMenu(id))
  .filter(Boolean);
- const papaId = (promo.productosRequeridos || [])[0];
- const papa = papaId ? _buscarProductoEnMenu(papaId) : null;
+ const requeridos = (promo.productosRequeridos || [])
+ .map(id => _buscarProductoEnMenu(id))
+ .filter(Boolean);
  const proporcion = promo.proporcion > 0 ? promo.proporcion : 1;
 
  document.getElementById('m-info-title').textContent = promo.nombre;
@@ -2345,8 +2355,20 @@ window.abrirPromoComboModal = function(promoId) {
  </label>`;
  }).join('');
 
+ // Si hay más de un producto configurado como "habilita el descuento"
+ // (ej: Papas Chicas, Papas Chicas con Cheddar, Papas Grandes), el
+ // cliente elige cuál quiere — si solo hay uno, se preselecciona directo.
+ const requeridosHtml = requeridos.map((r, i) => {
+ const precio = (menuOverrides[r.id] && menuOverrides[r.id].precio) ? menuOverrides[r.id].precio : r.p;
+ return `<label class="custom-check" style="cursor:pointer;">
+   <span>${r.n} <span style="color:#6b7280;font-size:12px;">$${precio.toLocaleString()}</span></span>
+   <input type="radio" name="pcm-requerido" value="${r.id}" ${i === 0 ? 'checked' : ''}>
+   <div class="check-box"></div>
+ </label>`;
+ }).join('');
+
  document.getElementById('m-info-body').innerHTML = `
- <p style="margin-bottom:14px;">${promo.descripcion || ('Llevando ' + (papa ? papa.n : 'el acompañamiento requerido') + ', cada hamburguesa elegida tiene ' + promo.descPct + '% OFF.')}</p>
+ <p style="margin-bottom:14px;">${promo.descripcion || ('Llevando el acompañamiento requerido, cada hamburguesa elegida tiene ' + promo.descPct + '% OFF.')}</p>
  <div style="font-size:12px;color:#9ca3af;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Elegí tu hamburguesa</div>
  <div id="pcm-burgers-list" style="margin-bottom:16px;">${burgersHtml}</div>
  <div style="display:flex;align-items:center;justify-content:space-between;background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:10px 14px;margin-bottom:16px;">
@@ -2357,7 +2379,10 @@ window.abrirPromoComboModal = function(promoId) {
      <button onclick="_pcmCambiarQty(1)" style="width:32px;height:32px;border-radius:50%;border:1px solid var(--border);background:transparent;color:var(--white);font-size:16px;cursor:pointer;">+</button>
    </div>
  </div>
- ${papa ? `<p style="font-size:11px;color:#6b7280;margin-bottom:16px;">Se agrega junto con <strong style="color:var(--white);">${proporcion}× ${papa.n}</strong> por cada hamburguesa, necesario para que aplique el descuento.</p>` : ''}
+ ${requeridos.length > 0 ? `
+ <div style="font-size:12px;color:#9ca3af;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Elegí el acompañamiento (${proporcion}× por hamburguesa)</div>
+ <div id="pcm-requeridos-list" style="margin-bottom:16px;">${requeridosHtml}</div>
+ ` : ''}
  <button class="btn-action" onclick="_pcmConfirmarAgregar('${promoId}')" style="width:100%;padding:12px;">Agregar al carrito</button>
  `;
 
@@ -2374,9 +2399,16 @@ window._pcmCambiarQty = function(delta) {
 window._pcmConfirmarAgregar = function(promoId) {
  const promo = (window._promosComboAuto || []).find(p => p.id === promoId);
  if (!promo) return;
- const seleccionado = document.querySelector('input[name="pcm-burger"]:checked');
- if (!seleccionado) { alert('Elegí una hamburguesa para continuar.'); return; }
- _promoComboAgregarAlCarrito(promoId, parseInt(seleccionado.value, 10), window._pcmQty || 1);
+ const burgerSel = document.querySelector('input[name="pcm-burger"]:checked');
+ if (!burgerSel) { alert('Elegí una hamburguesa para continuar.'); return; }
+ const requeridoSel = document.querySelector('input[name="pcm-requerido"]:checked');
+ if ((promo.productosRequeridos || []).length > 0 && !requeridoSel) { alert('Elegí el acompañamiento para continuar.'); return; }
+ _promoComboAgregarAlCarrito(
+ promoId,
+ parseInt(burgerSel.value, 10),
+ window._pcmQty || 1,
+ requeridoSel ? parseInt(requeridoSel.value, 10) : null
+ );
 };
 
 // Busca un producto por id recorriendo el MENU (ya trae .cat asignado
@@ -2390,10 +2422,10 @@ function _buscarProductoEnMenu(id) {
 }
 
 // Agrega la hamburguesa elegida + la cantidad correspondiente del
-// acompañamiento requerido (según la proporción configurada) al carrito.
-// El descuento se aplica solo después, automáticamente, vía
+// acompañamiento que el cliente eligió (según la proporción configurada)
+// al carrito. El descuento se aplica solo después, automáticamente, vía
 // calcularDescuentoComboAuto() al renderizar el carrito.
-window._promoComboAgregarAlCarrito = function(promoId, burgerId, cantidad) {
+window._promoComboAgregarAlCarrito = function(promoId, burgerId, cantidad, requeridoId) {
  const promo = (window._promosComboAuto || []).find(p => p.id === promoId);
  if (!promo) return;
  const burger = _buscarProductoEnMenu(burgerId);
@@ -2401,16 +2433,18 @@ window._promoComboAgregarAlCarrito = function(promoId, burgerId, cantidad) {
 
  cantidad = Math.max(1, parseInt(cantidad, 10) || 1);
  const proporcion = promo.proporcion > 0 ? promo.proporcion : 1;
- const papaId = (promo.productosRequeridos || [])[0];
- const papa = papaId ? _buscarProductoEnMenu(papaId) : null;
+ // Si no se pasó explícitamente (ej: llamada vieja), usar el primero
+ // configurado como fallback.
+ const idElegido = requeridoId || (promo.productosRequeridos || [])[0];
+ const requerido = idElegido ? _buscarProductoEnMenu(idElegido) : null;
 
  const precioBurger = (menuOverrides[burger.id] && menuOverrides[burger.id].precio) ? menuOverrides[burger.id].precio : burger.p;
  carrito.push({ ...burger, p: precioBurger, cant: cantidad, sin: [], con: [], obs: '', totalItem: precioBurger * cantidad });
 
- if (papa) {
- const cantPapas = cantidad * proporcion;
- const precioPapa = (menuOverrides[papa.id] && menuOverrides[papa.id].precio) ? menuOverrides[papa.id].precio : papa.p;
- carrito.push({ ...papa, p: precioPapa, cant: cantPapas, sin: [], con: [], obs: '', totalItem: precioPapa * cantPapas });
+ if (requerido) {
+ const cantRequerida = cantidad * proporcion;
+ const precioRequerido = (menuOverrides[requerido.id] && menuOverrides[requerido.id].precio) ? menuOverrides[requerido.id].precio : requerido.p;
+ carrito.push({ ...requerido, p: precioRequerido, cant: cantRequerida, sin: [], con: [], obs: '', totalItem: precioRequerido * cantRequerida });
  }
 
  guardarCarritoPersistente();
@@ -3571,6 +3605,7 @@ function admRenderCard(p) {
  <div class="adm-irow"><span class="l">Hora retiro</span><span class="v" style="color:var(--primary)"> ${p.horarioEstimado || '—'}</span></div> `}
  <div class="adm-irow"><span class="l">Pago</span><span class="v">${p.pago || '—'}</span></div> ${p.cuponUsado && p.cuponUsado !== 'Ninguno' ? `<div class="adm-irow"><span class="l">Cupón</span><span class="v" style="color:#10b981">${p.cuponUsado}</span></div>` : ''}
  ${p.codigoInterno ? `<div class="adm-irow"><span class="l">Código</span><span class="v" style="color:#a78bfa;font-family:monospace;font-weight:800;">${p.codigoInterno.codigo} <span style="font-family:sans-serif;font-weight:400;color:#9ca3af;">— ${p.codigoInterno.nombre}</span></span></div>` : ''}
+ ${p.promoComboAplicada && p.promoComboAplicada.length > 0 ? p.promoComboAplicada.map(promo => `<div class="adm-irow"><span class="l">Promo</span><span class="v" style="color:#10b981;font-weight:700;">🎉 ${promo.nombre} (${promo.unidades} ud.) -$${(promo.monto||0).toLocaleString('es-AR')}</span></div>`).join('') : ''}
  ${p.gps && p.gps !== 'No provisto' ? `<div class="adm-irow"><span class="l">GPS</span><span class="v"><a href="http://maps.google.com/maps?q=${p.gps}" target="_blank" style="color:#3b82f6">Ver mapa</a></span></div>` : ''}
  ${p.obs ? `<div class="adm-irow"><span class="l">Obs.</span><span class="v">${p.obs}</span></div>` : ''}
 
@@ -4729,6 +4764,7 @@ function admImprimir(id) {
  const totalesCliente = `
  <tr><td colspan="3" class="td-r"> Sub total :${(p.subtotal||0).toFixed(2)}</td></tr> ${esDel ? `<tr><td colspan="3" class="td-r"> Envío : ${(p.envio||0).toFixed(2)}</td></tr>` : ''}
  ${p.descuento ? `<tr><td colspan="3" class="td-r"> Descuento : -${Number(p.descuento).toFixed(2)}${p.cuponUsado?' ('+p.cuponUsado+')':''}</td></tr>` : ''}
+ ${p.promoComboAplicada && p.promoComboAplicada.length > 0 ? p.promoComboAplicada.map(promo => `<tr><td colspan="3" class="td-r"> Promo ${promo.nombre} (${promo.unidades} ud.) : -${Number(promo.monto||0).toFixed(2)}</td></tr>`).join('') : ''}
  ${p.codigoInterno ? `<tr><td colspan="3" class="td-r"> Cod: ${p.codigoInterno.codigo} (${p.codigoInterno.nombre})</td></tr>` : ''}
  <tr><td colspan="3" class="td-r"><strong> Total :${(p.total||0).toFixed(2)}</strong></td></tr>`;
 
