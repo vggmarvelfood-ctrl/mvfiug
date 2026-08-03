@@ -5187,6 +5187,24 @@ function admRenderPromosCombo() {
  }).join('');
 }
 
+// Resalta en verde (fondo + borde + check) la fila del checkbox tildado,
+// y la vuelve a su estado normal si se destilda — así se ve de un
+// vistazo qué hamburguesas/productos quedaron seleccionados en la lista.
+window._pcfToggleFila = function(checkbox) {
+ const label = checkbox.closest('label');
+ if (!label) return;
+ const mark = label.querySelector('.pcf-check-mark');
+ if (checkbox.checked) {
+ label.style.background = 'rgba(16,185,129,.15)';
+ label.style.borderColor = '#10b981';
+ if (mark) mark.style.display = 'inline';
+ } else {
+ label.style.background = 'var(--bg)';
+ label.style.borderColor = 'transparent';
+ if (mark) mark.style.display = 'none';
+ }
+};
+
 window.admAbrirFormPromoCombo = function(id) {
  admPromoComboEditando = id;
  const form = document.getElementById('pcf-form');
@@ -5204,9 +5222,10 @@ window.admAbrirFormPromoCombo = function(id) {
  burgersHtml += `<div style="font-size:9px;color:#6b7280;font-weight:700;margin:6px 0 2px;text-transform:uppercase;">${cat.cat}</div>`;
  cat.items.forEach(item => {
  const checked = idsElegibles.includes(item.id);
- burgersHtml += `<label style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:var(--bg);border-radius:6px;font-size:12px;color:var(--white);cursor:pointer;">
-   <input type="checkbox" class="pcf-burger-check" value="${item.id}" ${checked ? 'checked' : ''} style="width:15px;height:15px;accent-color:#10b981;flex-shrink:0;">
+ burgersHtml += `<label style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:${checked ? 'rgba(16,185,129,.15)' : 'var(--bg)'};border:1px solid ${checked ? '#10b981' : 'transparent'};border-radius:6px;font-size:12px;color:var(--white);cursor:pointer;transition:background .15s,border-color .15s;">
+   <input type="checkbox" class="pcf-burger-check" value="${item.id}" ${checked ? 'checked' : ''} onchange="_pcfToggleFila(this)" style="width:15px;height:15px;accent-color:#10b981;flex-shrink:0;">
    <span style="flex:1;">${item.n}</span>
+   <span class="pcf-check-mark" style="color:#10b981;font-weight:800;font-size:14px;display:${checked ? 'inline' : 'none'};">✓</span>
  </label>`;
  });
  });
@@ -5217,10 +5236,11 @@ window.admAbrirFormPromoCombo = function(id) {
  MENU.forEach(cat => {
  cat.items.forEach(item => {
  const checked = idsRequeridos.includes(item.id);
- reqHtml += `<label style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:var(--bg);border-radius:6px;font-size:12px;color:var(--white);cursor:pointer;">
-   <input type="checkbox" class="pcf-req-check" value="${item.id}" ${checked ? 'checked' : ''} style="width:15px;height:15px;accent-color:#10b981;flex-shrink:0;">
+ reqHtml += `<label style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:${checked ? 'rgba(16,185,129,.15)' : 'var(--bg)'};border:1px solid ${checked ? '#10b981' : 'transparent'};border-radius:6px;font-size:12px;color:var(--white);cursor:pointer;transition:background .15s,border-color .15s;">
+   <input type="checkbox" class="pcf-req-check" value="${item.id}" ${checked ? 'checked' : ''} onchange="_pcfToggleFila(this)" style="width:15px;height:15px;accent-color:#10b981;flex-shrink:0;">
    <span style="flex:1;">${item.n}</span>
    <span style="color:#6b7280;font-size:10px;">${cat.cat}</span>
+   <span class="pcf-check-mark" style="color:#10b981;font-weight:800;font-size:14px;display:${checked ? 'inline' : 'none'};">✓</span>
  </label>`;
  });
  });
