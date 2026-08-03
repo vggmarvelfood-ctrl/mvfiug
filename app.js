@@ -2026,7 +2026,7 @@ async function mostrarSucesoPedido(tipo, waUrl, total) {
  // la consola. Ahora el token vive solo en el servidor (variable de
  // entorno MERCADOPAGO_ACCESS_TOKEN) y este fetch solo pide el link ya
  // generado, sin exponer ninguna credencial.
- const prefRes = await fetch('/api/mp-preference', {
+ const prefRes = await fetch('/api/config?action=mp-preference', {
  method: 'POST',
  headers: { 'Content-Type': 'application/json' },
  body: JSON.stringify({ total, backUrl: waUrl })
@@ -4671,7 +4671,7 @@ async function admCargarMercadoPago() {
 
  // Estado real del token: se verifica en el SERVIDOR (nunca se lee
  // el valor desde Firestore ni se muestra en este panel).
- const status = await fetch('/api/mp-status').then(r => r.json()).catch(() => ({ configured: false }));
+ const status = await fetch('/api/config?action=mp-status').then(r => r.json()).catch(() => ({ configured: false }));
  window._mpActivo = mpActivo && !!status.configured;
  _syncMpOptionVisibility();
  if (status.configured) {
@@ -4697,7 +4697,7 @@ window.admMpVerificarConfig = async function() {
  fb.textContent = 'Verificando...';
  }
  try {
- const status = await fetch('/api/mp-status').then(r => r.json());
+ const status = await fetch('/api/config?action=mp-status').then(r => r.json());
  if (fb) {
  if (status.configured) {
  fb.style.background = 'rgba(16,185,129,0.15)';
@@ -4780,7 +4780,7 @@ window.admMpToggleActivo = async function(checked) {
    // valor del token — solo dice si está presente o no.
    Promise.all([
      window.db.collection('config_menu').doc('mercadopago').get().catch(() => null),
-     fetch('/api/mp-status').then(r => r.json()).catch(() => ({ configured: false }))
+     fetch('/api/config?action=mp-status').then(r => r.json()).catch(() => ({ configured: false }))
    ]).then(([snap, status]) => {
      const mpActivoToggle = (snap && snap.exists) ? (snap.data()?.mpActivo !== false) : false;
      window._mpActivo = mpActivoToggle && !!(status && status.configured);
