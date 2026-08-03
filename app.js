@@ -1119,7 +1119,7 @@ function renderCartItems() {
  const divCombo = document.createElement('div');
  divCombo.id = "detalle-combo-ui";
  divCombo.innerHTML = resultCombo.detalles.map(d =>
- `<div style="display: flex; justify-content: space-between; margin-bottom: 8px; color: #10b981; font-weight: 600;"><span>🎉 ${d.nombre} (${d.unidades} ud.)</span><span>-$${d.monto.toLocaleString()}</span></div>`
+ `<div style="display: flex; justify-content: space-between; margin-bottom: 8px; color: #10b981; font-weight: 600;"><span> ${d.nombre} (${d.unidades} ud.)</span><span>-$${d.monto.toLocaleString()}</span></div>`
  ).join('');
  totalBox.parentNode.insertBefore(divCombo, totalBox);
  }
@@ -2315,7 +2315,7 @@ function obtenerCuponDelDia() {
  const combosVisibles = (window._promosComboAuto || []).filter(p => _promoComboEsVigente(p));
  const combosHtml = combosVisibles.map(p => {
  const cantBurgers = (p.productosElegibles || []).length;
- return `<div class="promo-card"><div class="badge-promo">🎉 AUTOMÁTICA</div>${(p.img) ? `<img src="${p.img}" width="400" height="140" style="width:100%; height:140px; object-fit:cover; border-radius:10px; margin-bottom:10px;" loading="lazy" decoding="async" onerror="this.style.display='none'">` : ''}<h3 style="font-size:16px; font-weight:800;">${p.nombre}</h3><p style="font-size:12px; color:var(--text-light); margin: 5px 0;">${p.descripcion || (p.descPct + '% OFF en ' + cantBurgers + ' hamburguesa(s) seleccionadas')}</p><button class="btn-action" onclick="abrirPromoComboModal('${p.id}')" style="margin-top:12px; padding:10px; font-size:13px;">VER PROMO</button></div>`;
+ return `<div class="promo-card"><div class="badge-promo"> AUTOMÁTICA</div>${(p.img) ? `<img src="${p.img}" width="400" height="140" style="width:100%; height:140px; object-fit:cover; border-radius:10px; margin-bottom:10px;" loading="lazy" decoding="async" onerror="this.style.display='none'">` : ''}<h3 style="font-size:16px; font-weight:800;">${p.nombre}</h3><p style="font-size:12px; color:var(--text-light); margin: 5px 0;">${p.descripcion || (p.descPct + '% OFF en ' + cantBurgers + ' hamburguesa(s) seleccionadas')}</p><button class="btn-action" onclick="abrirPromoComboModal('${p.id}')" style="margin-top:12px; padding:10px; font-size:13px;">VER PROMO</button></div>`;
  }).join('');
 
  if (promosVisibles.length === 0 && combosVisibles.length === 0) {
@@ -3605,7 +3605,7 @@ function admRenderCard(p) {
  <div class="adm-irow"><span class="l">Hora retiro</span><span class="v" style="color:var(--primary)"> ${p.horarioEstimado || '—'}</span></div> `}
  <div class="adm-irow"><span class="l">Pago</span><span class="v">${p.pago || '—'}</span></div> ${p.cuponUsado && p.cuponUsado !== 'Ninguno' ? `<div class="adm-irow"><span class="l">Cupón</span><span class="v" style="color:#10b981">${p.cuponUsado}</span></div>` : ''}
  ${p.codigoInterno ? `<div class="adm-irow"><span class="l">Código</span><span class="v" style="color:#a78bfa;font-family:monospace;font-weight:800;">${p.codigoInterno.codigo} <span style="font-family:sans-serif;font-weight:400;color:#9ca3af;">— ${p.codigoInterno.nombre}</span></span></div>` : ''}
- ${p.promoComboAplicada && p.promoComboAplicada.length > 0 ? p.promoComboAplicada.map(promo => `<div class="adm-irow"><span class="l">Promo</span><span class="v" style="color:#10b981;font-weight:700;">🎉 ${promo.nombre} (${promo.unidades} ud.) -$${(promo.monto||0).toLocaleString('es-AR')}</span></div>`).join('') : ''}
+ ${p.promoComboAplicada && p.promoComboAplicada.length > 0 ? p.promoComboAplicada.map(promo => `<div class="adm-irow"><span class="l">Promo</span><span class="v" style="color:#10b981;font-weight:700;"> ${promo.nombre} (${promo.unidades} ud.) -$${(promo.monto||0).toLocaleString('es-AR')}</span></div>`).join('') : ''}
  ${p.gps && p.gps !== 'No provisto' ? `<div class="adm-irow"><span class="l">GPS</span><span class="v"><a href="http://maps.google.com/maps?q=${p.gps}" target="_blank" style="color:#3b82f6">Ver mapa</a></span></div>` : ''}
  ${p.obs ? `<div class="adm-irow"><span class="l">Obs.</span><span class="v">${p.obs}</span></div>` : ''}
 
@@ -5088,7 +5088,7 @@ function admRenderPromosCombo() {
  if (!cont) return;
 
  let html = `
- <div style="font-size:13px;font-weight:800;color:var(--white);margin-bottom:2px;">🎉 Promos automáticas por combinación</div>
+ <div style="font-size:13px;font-weight:800;color:var(--white);margin-bottom:2px;"> Promos automáticas por combinación</div>
  <p style="font-size:11px;color:#9ca3af;margin:0 0 12px;line-height:1.5;">Se aplican solas en el carrito del cliente, sin código. Ej: <em>30% OFF en cada Simple/Doble si el pedido también lleva papas</em> — cada papas habilita el descuento en una hamburguesa.</p>
  <button onclick="admAbrirFormPromoCombo(null)"
  style="width:100%;margin-bottom:16px;padding:12px;background:rgba(16,185,129,.1);border:2px dashed #10b981;color:#10b981;border-radius:12px;font-size:14px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">＋ CONFIGURAR PROMO NUEVA</button>
