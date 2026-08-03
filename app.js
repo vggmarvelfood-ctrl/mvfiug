@@ -1538,6 +1538,16 @@ window.addEventListener('load', () => {
   reintentarPedidosPendientes();
 });
 
+// Red de seguridad: en mobile con datos inestables el evento 'online'
+// a veces no se dispara (el navegador "cree" que sigue offline aunque ya
+// haya señal, o reconecta sin emitir el evento). Reintentar cada 30s como
+// respaldo cubre esos casos sin depender solo del evento.
+setInterval(() => {
+  if (navigator.onLine && pedidosPendientes.length > 0) {
+    reintentarPedidosPendientes();
+  }
+}, 30000);
+
 // 
 // FLUJO DE CARRITO EN 2 PASOS
 // 
@@ -1916,21 +1926,19 @@ async function mostrarSucesoPedido(tipo, waUrl, total) {
  if (tipo === 'mercadopago') {
  redirMsg.innerHTML = 'Generando link de Mercado Pago...';
  try {
- const mpSnap = await window.db.collection('config_menu').doc('mercadopago').get();
- if (!mpSnap.exists || !mpSnap.data()?.accessToken) throw new Error('no_token');
- const mpToken = mpSnap.data().accessToken;
- const prefRes = await fetch('https://api.mercadopago.com/checkout/preferences', {
+ // SEGURIDAD: antes esto leía el Access Token directamente desde
+ // Firestore (config_menu/mercadopago) y llamaba a la API de MP desde
+ // el navegador — cualquiera podía copiar el token de producción desde
+ // la consola. Ahora el token vive solo en el servidor (variable de
+ // entorno MERCADOPAGO_ACCESS_TOKEN) y este fetch solo pide el link ya
+ // generado, sin exponer ninguna credencial.
+ const prefRes = await fetch('/api/mp-preference', {
  method: 'POST',
- headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + mpToken },
- body: JSON.stringify({
- items: [{ title: 'Pedido Marvel Food', quantity: 1, unit_price: total, currency_id: 'ARS' }],
- back_urls: { success: waUrl, failure: waUrl, pending: waUrl },
- auto_return: 'approved',
- statement_descriptor: 'Marvel Food'
- })
+ headers: { 'Content-Type': 'application/json' },
+ body: JSON.stringify({ total, backUrl: waUrl })
  });
- if (!prefRes.ok) throw new Error('mp_api_' + prefRes.status);
- const prefData = await prefRes.json();
+ const prefData = await prefRes.json().catch(() => ({}));
+ if (!prefRes.ok || !prefData.init_point) throw new Error(prefData.error || ('mp_api_' + prefRes.status));
  redirMsg.innerHTML = 'Link generado · Abriendo Mercado Pago...';
  spinner.style.display = 'none';
  setTimeout(() => _peoCerrarYRedirigir(overlay, prefData.init_point), 7800);
@@ -4523,11 +4531,10 @@ function admSwitchTab(tab, btn) {
 // ADMIN — MERCADO PAGO
 // 
 async function admCargarMercadoPago() {
- const inp = document.getElementById('adm-mp-token-inp');
  const dot = document.getElementById('adm-mp-status-dot');
  const txt = document.getElementById('adm-mp-status-txt');
  const sub = document.getElementById('adm-mp-status-sub');
- if (!inp) return;
+ const purgeBox = document.getElementById('adm-mp-purge-box');
  try {
  const snap = await window.db.collection('config_menu').doc('mercadopago').get();
  // Cargar estado del toggle activo/inactivo
@@ -4539,78 +4546,79 @@ async function admCargarMercadoPago() {
  if (toggleDesc) toggleDesc.textContent = mpActivo
    ? 'Activado — los clientes ven la opción Mercado Pago'
    : 'Desactivado — la opción no aparece para los clientes';
+
+ // Aviso de token viejo: si el documento todavía tiene el campo
+ // accessToken (versión anterior, expuesta al cliente), mostrar el
+ // botón para purgarlo.
+ if (purgeBox) purgeBox.style.display = (snap.exists && snap.data()?.accessToken) ? 'block' : 'none';
+
+ // Estado real del token: se verifica en el SERVIDOR (nunca se lee
+ // el valor desde Firestore ni se muestra en este panel).
+ const status = await fetch('/api/mp-status').then(r => r.json()).catch(() => ({ configured: false }));
+ window._mpActivo = mpActivo && !!status.configured;
  _syncMpOptionVisibility();
- if (snap.exists && snap.data()?.accessToken) {
- const tk = snap.data().accessToken;
- // Mostrar solo los últimos 6 chars del token
- inp.value = '•'.repeat(20) + tk.slice(-6);
- inp.dataset.saved = '1';
- if (dot) { dot.style.background = '#10b981'; }
- if (txt) txt.textContent = 'Mercado Pago activo ';
+ if (status.configured) {
+ if (dot) dot.style.background = '#10b981';
+ if (txt) txt.textContent = 'Access Token configurado en el servidor';
  if (sub) sub.textContent = 'Los pagos online están habilitados para los clientes';
  } else {
  if (dot) dot.style.background = '#6b7280';
  if (txt) txt.textContent = 'No configurado';
- if (sub) sub.textContent = 'Ingresá tu Access Token para activar los pagos online';
+ if (sub) sub.textContent = 'Configurá MERCADOPAGO_ACCESS_TOKEN en Vercel para activar los pagos online';
  }
  } catch(e) { console.warn('[MP Admin]', e); }
 }
 
-window.admMpToggleToken = function() {
- const inp = document.getElementById('adm-mp-token-inp');
- const btn = document.getElementById('adm-mp-eye-btn');
- if (!inp) return;
- if (inp.type === 'password') {
- inp.type = 'text';
- if (inp.dataset.saved === '1') { inp.value = ''; inp.dataset.saved = '0'; inp.placeholder = 'Pegá el nuevo Access Token...'; }
- if (btn) btn.textContent = 'Ocultar';
- } else {
- inp.type = 'password';
- if (btn) btn.textContent = 'Ver';
- }
-};
-
-window.admMpGuardar = async function() {
- const inp = document.getElementById('adm-mp-token-inp');
+// Verificación manual del estado (botón "VERIFICAR CONFIGURACIÓN")
+window.admMpVerificarConfig = async function() {
  const fb = document.getElementById('adm-mp-feedback');
- if (!inp || !fb) return;
- const token = inp.value.trim();
- if (!token || token.includes('•')) {
- fb.style.display = 'block';
- fb.style.background = 'rgba(239,68,68,0.15)';
- fb.style.border = '1px solid #ef4444';
- fb.style.color = '#ef4444';
- fb.textContent = 'Pegá un Access Token válido primero.';
- return;
- }
+ if (fb) {
  fb.style.display = 'block';
  fb.style.background = 'rgba(245,158,11,0.1)';
  fb.style.border = '1px solid var(--primary)';
  fb.style.color = 'var(--primary)';
- fb.textContent = 'Guardando...';
+ fb.textContent = 'Verificando...';
+ }
  try {
- await window.db.collection('config_menu').doc('mercadopago').set({ accessToken: token }, { merge: true });
- inp.value = '•'.repeat(20) + token.slice(-6);
- inp.dataset.saved = '1';
- inp.type = 'password';
- const btn = document.getElementById('adm-mp-eye-btn');
- if (btn) btn.textContent = 'Ver';
+ const status = await fetch('/api/mp-status').then(r => r.json());
+ if (fb) {
+ if (status.configured) {
  fb.style.background = 'rgba(16,185,129,0.15)';
  fb.style.border = '1px solid #10b981';
  fb.style.color = '#10b981';
- fb.textContent = ' Access Token guardado. Mercado Pago está activo.';
- const dot = document.getElementById('adm-mp-status-dot');
- const txt = document.getElementById('adm-mp-status-txt');
- const sub = document.getElementById('adm-mp-status-sub');
- if (dot) dot.style.background = '#10b981';
- if (txt) txt.textContent = 'Mercado Pago activo ';
- if (sub) sub.textContent = 'Los pagos online están habilitados para los clientes';
- setTimeout(() => { fb.style.display = 'none'; }, 4000);
- } catch(e) {
+ fb.textContent = '✅ El servidor tiene el token configurado.';
+ } else {
  fb.style.background = 'rgba(239,68,68,0.15)';
  fb.style.border = '1px solid #ef4444';
  fb.style.color = '#ef4444';
- fb.textContent = 'Error al guardar: ' + e.message;
+ fb.textContent = '⚠ Todavía no está configurado MERCADOPAGO_ACCESS_TOKEN en Vercel.';
+ }
+ }
+ await admCargarMercadoPago();
+ } catch(e) {
+ if (fb) {
+ fb.style.background = 'rgba(239,68,68,0.15)';
+ fb.style.border = '1px solid #ef4444';
+ fb.style.color = '#ef4444';
+ fb.textContent = 'Error al verificar: ' + e.message;
+ }
+ }
+};
+
+// Elimina el campo accessToken que había quedado guardado en Firestore
+// en la versión anterior (documento de lectura pública → estaba expuesto
+// a cualquiera que abriera la consola del navegador en la tienda).
+window.admMpPurgarTokenViejo = async function() {
+ if (!confirm('¿Eliminar el token guardado en la base de datos?\n\nAsegurate de haber rotado el token en Mercado Pago si todavía no lo hiciste.')) return;
+ try {
+ await window.db.collection('config_menu').doc('mercadopago').update({
+ accessToken: firebase.firestore.FieldValue.delete()
+ });
+ const purgeBox = document.getElementById('adm-mp-purge-box');
+ if (purgeBox) purgeBox.style.display = 'none';
+ alert('Token eliminado de la base de datos.');
+ } catch(e) {
+ alert('Error al eliminar: ' + e.message);
  }
 };
 
@@ -4649,10 +4657,16 @@ window.admMpToggleActivo = async function(checked) {
 (function _initMpStatus() {
  function _load() {
    if (!window.db) { setTimeout(_load, 800); return; }
-   window.db.collection('config_menu').doc('mercadopago').get().then(snap => {
-     window._mpActivo = snap.exists ? (snap.data()?.mpActivo !== false) : false;
-     // Solo mostrar MP si está explícitamente activado Y tiene token
-     if (!snap.exists || !snap.data()?.accessToken) window._mpActivo = false;
+   // "mpActivo" es un booleano simple del panel admin (no es sensible,
+   // puede seguir viviendo en Firestore). Si el servidor tiene el token
+   // configurado se verifica con /api/mp-status, que NUNCA revela el
+   // valor del token — solo dice si está presente o no.
+   Promise.all([
+     window.db.collection('config_menu').doc('mercadopago').get().catch(() => null),
+     fetch('/api/mp-status').then(r => r.json()).catch(() => ({ configured: false }))
+   ]).then(([snap, status]) => {
+     const mpActivoToggle = (snap && snap.exists) ? (snap.data()?.mpActivo !== false) : false;
+     window._mpActivo = mpActivoToggle && !!(status && status.configured);
      _syncMpOptionVisibility();
    }).catch(() => {
      window._mpActivo = false;
