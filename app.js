@@ -873,6 +873,64 @@ function obtenerHorarioEstimado(esEnvio) {
  return esEnvio ? "Próximo turno disponible" : `${f(min15)} a ${f(min30)} hs`;
 }
 
+// ═══════════════════════════════════════════════════════════════════
+//  PROMO AUTOMÁTICA POR COMBINACIÓN
+//  Ej: "30% OFF en hamburguesas Simples/Dobles, llevando papas" — el
+//  descuento se aplica por unidad: cada papas en el carrito habilita el
+//  descuento en una hamburguesa elegible (proporción configurable).
+//  Se configura desde el panel admin (tab Promos) y se guarda en
+//  Firestore: config_menu / promo_combo_auto. window._promoComboAuto lo
+//  mantiene sincronizado en tiempo real (ver cargarMenuOverrides).
+//
+//  Esta misma función la usan renderCartItems() (lo que ve el cliente en
+//  el carrito) y _procesarPedidoImpl() (lo que se cobra y se guarda en
+//  el pedido) — así nunca quedan desincronizados entre sí.
+// ═══════════════════════════════════════════════════════════════════
+window._promoComboAuto = null; // { activo, nombre, descPct, categoriasElegibles:[], productosRequeridos:[], proporcion }
+
+function calcularDescuentoComboAuto(items) {
+  const promo = window._promoComboAuto;
+  if (!promo || !promo.activo || !Array.isArray(items) || items.length === 0) {
+    return { monto: 0, unidades: 0, nombre: '' };
+  }
+  const catsElegibles = promo.categoriasElegibles || [];
+  const idsRequeridos = promo.productosRequeridos || [];
+  const proporcion = promo.proporcion > 0 ? promo.proporcion : 1;
+  if (catsElegibles.length === 0 || idsRequeridos.length === 0) {
+    return { monto: 0, unidades: 0, nombre: '' };
+  }
+
+  // Una entrada por CADA unidad elegible presente en el carrito, con su
+  // precio unitario (totalItem ya incluye extras, se prorratea por cant).
+  const preciosUnitarios = [];
+  let unidadesRequeridas = 0;
+  items.forEach(item => {
+    if (catsElegibles.includes(item.cat)) {
+      const precioUnit = item.cant > 0 ? (item.totalItem / item.cant) : 0;
+      for (let k = 0; k < item.cant; k++) preciosUnitarios.push(precioUnit);
+    }
+    if (idsRequeridos.includes(item.id)) {
+      unidadesRequeridas += item.cant;
+    }
+  });
+
+  // Cuántas unidades elegibles alcanzan a "emparejarse" con el
+  // acompañamiento requerido, según la proporción configurada
+  // (proporcion=1 → 1 papas habilita el descuento en 1 burger).
+  const unidadesConDescuento = Math.min(preciosUnitarios.length, Math.floor(unidadesRequeridas / proporcion));
+  if (unidadesConDescuento <= 0) return { monto: 0, unidades: 0, nombre: '' };
+
+  // Se descuentan primero las unidades más caras — es lo más favorable
+  // y predecible para el cliente cuando hay más burgers elegibles que
+  // papas para emparejar.
+  preciosUnitarios.sort((a, b) => b - a);
+  let sumaAfectada = 0;
+  for (let k = 0; k < unidadesConDescuento; k++) sumaAfectada += preciosUnitarios[k];
+
+  const monto = Math.round(sumaAfectada * (promo.descPct / 100));
+  return { monto, unidades: unidadesConDescuento, nombre: promo.nombre || (promo.descPct + '% OFF') };
+}
+
 function renderCartItems() {
  const list = document.getElementById('cart-items-list');
  let subtotal = 0;
@@ -957,6 +1015,16 @@ function renderCartItems() {
 
  let totalFinal = subtotal + costoEnvio - montoDescuento;
 
+ // Promo automática por combinación: solo si el cliente NO tiene un
+ // cupón manual aplicado (evita que se sumen dos descuentos a la vez).
+ let montoCombo = 0;
+ let resultCombo = { monto: 0, unidades: 0, nombre: '' };
+ if (!cuponAplicado) {
+ resultCombo = calcularDescuentoComboAuto(carrito);
+ montoCombo = resultCombo.monto;
+ if (montoCombo > 0) totalFinal -= montoCombo;
+ }
+
  document.getElementById('res-sub').innerText = `$${subtotal.toLocaleString()}`;
  const envioLabel = isDelivery
  ? (costoEnvio > 0 ? `$${costoEnvio.toLocaleString('es-AR')}` : 'A confirmar')
@@ -966,12 +1034,21 @@ function renderCartItems() {
  const totalBox = document.getElementById('res-total').parentElement;
  const descuentoPrevio = document.getElementById('detalle-descuento-ui');
  if (descuentoPrevio) descuentoPrevio.remove();
- 
+ const comboPrevio = document.getElementById('detalle-combo-ui');
+ if (comboPrevio) comboPrevio.remove();
+
  if (detalleDescuentoHtml) {
  const divDesc = document.createElement('div');
  divDesc.id = "detalle-descuento-ui";
  divDesc.innerHTML = detalleDescuentoHtml;
  totalBox.parentNode.insertBefore(divDesc, totalBox);
+ }
+
+ if (montoCombo > 0) {
+ const divCombo = document.createElement('div');
+ divCombo.id = "detalle-combo-ui";
+ divCombo.innerHTML = `<div style="display: flex; justify-content: space-between; margin-bottom: 8px; color: #10b981; font-weight: 600;"><span>🎉 ${resultCombo.nombre} (${resultCombo.unidades} ud.)</span><span>-$${montoCombo.toLocaleString()}</span></div>`;
+ totalBox.parentNode.insertBefore(divCombo, totalBox);
  }
 
  document.getElementById('res-total').innerText = `$${Math.max(0, totalFinal).toLocaleString()}`;
@@ -1151,7 +1228,21 @@ async function _procesarPedidoImpl() {
  // regalo_papas / regalo_libre / regalo → sin descuento numérico; el regalo se acuerda en local
  }
 
- let total = Math.max(0, sub + envio - montoDescuento);
+ // Promo automática por combinación: mismo cálculo que en el carrito
+ // (calcularDescuentoComboAuto), para que el total cobrado sea siempre
+ // igual al que el cliente vio antes de confirmar. Solo aplica si no
+ // hay un cupón manual ya aplicado (misma regla que en renderCartItems).
+ let montoCombo = 0;
+ let comboAplicado = null;
+ if (!cuponAplicado) {
+ const resultCombo = calcularDescuentoComboAuto(carrito);
+ if (resultCombo.monto > 0) {
+ montoCombo = resultCombo.monto;
+ comboAplicado = { nombre: resultCombo.nombre, unidades: resultCombo.unidades, monto: resultCombo.monto };
+ }
+ }
+
+ let total = Math.max(0, sub + envio - montoDescuento - montoCombo);
 
  if (pago === 'Efectivo' && vuelto > 0 && vuelto < total) {
  return alert(`El monto a abonar debe ser mayor al total ($${total}).`);
@@ -1193,6 +1284,9 @@ async function _procesarPedidoImpl() {
  envio: envio,
  descuento: montoDescuento,
  cuponUsado: detalleCupon,
+ // Promo automática por combinación (ej: 30% en burgers por llevar
+ // papas) — null si no aplicó ninguna en este pedido.
+ promoComboAplicada: comboAplicado,
  // FIX: persistir código interno para trazabilidad en el panel admin
  codigoInterno: codigoInternoAplicado
    ? { codigo: codigoInternoAplicado.codigo, nombre: codigoInternoAplicado.nombre, tipo: codigoInternoAplicado.tipo }
@@ -2333,6 +2427,7 @@ window.obtenerHorarioEstimado = (esDelivery) => {
 
 let _menuOverridesListenerActivo = false; // guard anti-doble-suscripción
 let _promosOverrideListenerActivo = false; // guard anti-doble-suscripción (promos)
+let _promoComboAutoListenerActivo = false; // guard anti-doble-suscripción (promo combo automática)
 
 // ── Helper: aplica overrides de promos al array PROMOS_DATA ──────────────
 // Reconstruye PROMOS_DATA desde cero (PROMOS_DATA_BASE + overrides) cada vez
@@ -2448,6 +2543,28 @@ async function cargarMenuOverrides() {
       _promosOverrideListenerActivo = true;
     } catch (e) {
       console.warn('[MenuOverrides] No se pudo registrar listener de promos_override:', e.message);
+    }
+  }
+
+  // ── 2b. onSnapshot de la promo automática por combinación ─────────────
+  // (ej: 30% OFF en burgers si el carrito también lleva papas)
+  if (!_promoComboAutoListenerActivo) {
+    try {
+      db.collection('config_menu').doc('promo_combo_auto')
+        .onSnapshot(
+          snap => {
+            window._promoComboAuto = snap.exists ? snap.data() : null;
+            if (typeof renderCartItems === 'function' && document.getElementById('cart-view')?.classList.contains('open')) {
+              renderCartItems();
+            }
+          },
+          err => {
+            console.warn('[MenuOverrides] onSnapshot error (promo_combo_auto):', err.code || err.message);
+          }
+        );
+      _promoComboAutoListenerActivo = true;
+    } catch (e) {
+      console.warn('[MenuOverrides] No se pudo registrar listener de promo_combo_auto:', e.message);
     }
   }
 
@@ -4515,7 +4632,7 @@ function admSwitchTab(tab, btn) {
  if (tab === 'dashboard') setTimeout(admCargarDashboard, 50);
  if (tab === 'menu') setTimeout(admCargarMenuGestion, 50);
  if (tab === 'resenas') setTimeout(admCargarResenas, 50);
- if (tab === 'promos') setTimeout(admCargarPromos, 50);
+ if (tab === 'promos') { setTimeout(admCargarPromos, 50); setTimeout(admCargarPromoCombo, 50); }
  if (tab === 'cupones') setTimeout(admCargarCupones, 50);
  if (tab === 'codigos') setTimeout(admCargarCodigos, 300);
  if (tab === 'integracion') setTimeout(_integRenderTab, 50);
@@ -4682,6 +4799,101 @@ window.admMpToggleActivo = async function(checked) {
 // GESTIÓN DE PROMOS (CRUD COMPLETO) 
 let admPromosData = [];
 let admPromoEditando = null; // null = nueva promo
+
+// ═══════════════════════════════════════════════════════════════════
+//  Admin — Promo automática por combinación (config_menu/promo_combo_auto)
+// ═══════════════════════════════════════════════════════════════════
+
+// Categorías del menú que tiene sentido ofrecer como "elegibles para el
+// descuento" — se excluye Promos (ya son combos con precio propio) y
+// Acompañamientos (normalmente es el lado "requerido", no el elegible,
+// aunque el admin puede tildar cualquier categoría si lo necesita).
+function _pcCategoriasDisponibles() {
+ return MENU.map(c => c.cat);
+}
+
+async function admCargarPromoCombo() {
+ const catsList = document.getElementById('pc-cats-list');
+ const prodList = document.getElementById('pc-prod-list');
+ if (!catsList || !prodList) return;
+
+ let cfg = {};
+ try {
+ const snap = await db.collection('config_menu').doc('promo_combo_auto').get();
+ if (snap.exists) cfg = snap.data();
+ } catch(e) { console.warn('[PromoCombo Admin]', e); }
+
+ const catsElegibles = cfg.categoriasElegibles || [];
+ const idsRequeridos = cfg.productosRequeridos || [];
+
+ // Checklist de categorías (para elegir qué hamburguesas entran en el descuento)
+ catsList.innerHTML = _pcCategoriasDisponibles().map(cat => {
+ const checked = catsElegibles.includes(cat);
+ const inputId = 'pc-cat-' + cat.replace(/\s+/g, '-');
+ return `<label style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg);border:1px solid var(--border);border-radius:8px;font-size:12px;color:var(--white);cursor:pointer;">
+ <input type="checkbox" id="${inputId}" value="${cat}" ${checked ? 'checked' : ''} style="width:16px;height:16px;accent-color:var(--primary);">
+ ${cat}
+ </label>`;
+ }).join('');
+
+ // Checklist de productos puntuales (para elegir qué variantes de papas/acompañamiento habilitan el descuento)
+ let prodHtml = '';
+ MENU.forEach(cat => {
+ cat.items.forEach(item => {
+ const checked = idsRequeridos.includes(item.id);
+ prodHtml += `<label style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--bg);border:1px solid var(--border);border-radius:8px;font-size:12px;color:var(--white);cursor:pointer;">
+ <input type="checkbox" class="pc-prod-check" value="${item.id}" ${checked ? 'checked' : ''} style="width:16px;height:16px;accent-color:var(--primary);flex-shrink:0;">
+ <span style="flex:1;">${item.n}</span>
+ <span style="color:#6b7280;font-size:10px;">${cat.cat}</span>
+ </label>`;
+ });
+ });
+ prodList.innerHTML = prodHtml;
+
+ const activoEl = document.getElementById('pc-activo');
+ const nombreEl = document.getElementById('pc-nombre');
+ const pctEl = document.getElementById('pc-pct');
+ const propEl = document.getElementById('pc-proporcion');
+ if (activoEl) activoEl.checked = cfg.activo === true;
+ if (nombreEl) nombreEl.value = cfg.nombre || '';
+ if (pctEl) pctEl.value = cfg.descPct || '';
+ if (propEl) propEl.value = cfg.proporcion || 1;
+}
+
+window.admGuardarPromoCombo = async function() {
+ const fb = document.getElementById('pc-feedback');
+ const activo = document.getElementById('pc-activo')?.checked || false;
+ const nombre = document.getElementById('pc-nombre')?.value.trim() || '';
+ const descPct = parseInt(document.getElementById('pc-pct')?.value, 10) || 0;
+ const proporcion = parseInt(document.getElementById('pc-proporcion')?.value, 10) || 1;
+ const categoriasElegibles = Array.from(document.querySelectorAll('#pc-cats-list input[type="checkbox"]:checked')).map(el => el.value);
+ const productosRequeridos = Array.from(document.querySelectorAll('.pc-prod-check:checked')).map(el => parseInt(el.value, 10));
+
+ function _mostrarFb(ok, msg) {
+ if (!fb) return;
+ fb.style.display = 'block';
+ fb.style.background = ok ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)';
+ fb.style.border = ok ? '1px solid #10b981' : '1px solid #ef4444';
+ fb.style.color = ok ? '#10b981' : '#ef4444';
+ fb.textContent = msg;
+ }
+
+ if (activo) {
+ if (!descPct || descPct <= 0 || descPct > 100) return _mostrarFb(false, 'Ingresá un % de descuento válido (1-100).');
+ if (categoriasElegibles.length === 0) return _mostrarFb(false, 'Elegí al menos una categoría para el descuento.');
+ if (productosRequeridos.length === 0) return _mostrarFb(false, 'Elegí al menos un producto que habilite el descuento (ej: las papas).');
+ }
+
+ try {
+ await db.collection('config_menu').doc('promo_combo_auto').set({
+ activo, nombre, descPct, proporcion, categoriasElegibles, productosRequeridos
+ });
+ _mostrarFb(true, activo ? '✅ Promo automática activa y guardada.' : 'Guardado (promo desactivada).');
+ setTimeout(() => { if (fb) fb.style.display = 'none'; }, 4000);
+ } catch(e) {
+ _mostrarFb(false, 'Error al guardar: ' + e.message);
+ }
+};
 
 async function admCargarPromos() {
  const cont = document.getElementById('adm-promos-lista');
