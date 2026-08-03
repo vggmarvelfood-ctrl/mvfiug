@@ -877,61 +877,128 @@ function obtenerHorarioEstimado(esEnvio) {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-//  PROMO AUTOMÁTICA POR COMBINACIÓN
-//  Ej: "30% OFF en hamburguesas Simples/Dobles, llevando papas" — el
-//  descuento se aplica por unidad: cada papas en el carrito habilita el
-//  descuento en una hamburguesa elegible (proporción configurable).
-//  Se configura desde el panel admin (tab Promos) y se guarda en
-//  Firestore: config_menu / promo_combo_auto. window._promoComboAuto lo
-//  mantiene sincronizado en tiempo real (ver cargarMenuOverrides).
+//  PROMOS AUTOMÁTICAS POR COMBINACIÓN
+//  Ej: "30% OFF en Simples y Dobles, llevando papas" — el descuento se
+//  aplica por unidad: cada papas en el carrito habilita el descuento en
+//  una hamburguesa elegible (proporción configurable). Pueden existir
+//  varias promos de este tipo activas a la vez (una por combinación).
+//  Se configuran desde el panel admin (tab Promos → "Configurar promo
+//  nueva") y se guardan en Firestore, colección: promos_combo.
+//  window._promosComboAuto la mantiene sincronizada en tiempo real (ver
+//  cargarMenuOverrides).
 //
 //  Esta misma función la usan renderCartItems() (lo que ve el cliente en
 //  el carrito) y _procesarPedidoImpl() (lo que se cobra y se guarda en
 //  el pedido) — así nunca quedan desincronizados entre sí.
 // ═══════════════════════════════════════════════════════════════════
-window._promoComboAuto = null; // { activo, nombre, descPct, categoriasElegibles:[], productosRequeridos:[], proporcion }
+window._promosComboAuto = []; // [{ id, activo, nombre, descripcion, img, descPct, productosElegibles:[], productosRequeridos:[], proporcion, aplicaA:'unidad'|'pedido', limiteUnidades, soloEfectivo, fechaDesde, fechaHasta }, ...]
 
-function calcularDescuentoComboAuto(items) {
-  const promo = window._promoComboAuto;
-  if (!promo || !promo.activo || !Array.isArray(items) || items.length === 0) {
-    return { monto: 0, unidades: 0, nombre: '' };
-  }
-  const catsElegibles = promo.categoriasElegibles || [];
-  const idsRequeridos = promo.productosRequeridos || [];
-  const proporcion = promo.proporcion > 0 ? promo.proporcion : 1;
-  if (catsElegibles.length === 0 || idsRequeridos.length === 0) {
-    return { monto: 0, unidades: 0, nombre: '' };
+function _promoComboHoyStr() {
+  // Fecha LOCAL (no UTC) — mismo criterio que renderPromosCatalog, para
+  // que "hasta el 07/08" siga válida toda esa fecha en Argentina.
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+function _promoComboEsVigente(promo) {
+  if (!promo.activo) return false;
+  const hoyStr = _promoComboHoyStr();
+  if (promo.fechaDesde && hoyStr < promo.fechaDesde) return false;
+  if (promo.fechaHasta && hoyStr > promo.fechaHasta) return false;
+  return true;
+}
+
+function _promoComboMetodoValido(promo, metodoActual) {
+  if (!promo.soloEfectivo) return true; // válida para todos los medios
+  return metodoActual === 'Efectivo';
+}
+
+// metodoActual: valor de #p-metodo ('Efectivo'|'Tarjeta'|'Mercado Pago').
+// Devuelve { montoTotal, detalles: [{ id, nombre, unidades, monto }] }.
+function calcularDescuentoComboAuto(items, metodoActual) {
+  const promos = (window._promosComboAuto || []).filter(p => _promoComboEsVigente(p) && _promoComboMetodoValido(p, metodoActual));
+  if (promos.length === 0 || !Array.isArray(items) || items.length === 0) {
+    return { montoTotal: 0, detalles: [] };
   }
 
-  // Una entrada por CADA unidad elegible presente en el carrito, con su
-  // precio unitario (totalItem ya incluye extras, se prorratea por cant).
-  const preciosUnitarios = [];
-  let unidadesRequeridas = 0;
+  // Pool de unidades disponibles por producto (para que dos promos no
+  // puedan usar la misma papa o la misma burger dos veces). Cada entrada
+  // guarda el precio unitario tantas veces como unidades haya.
+  const pool = {}; // productId -> [precioUnit, precioUnit, ...]
   items.forEach(item => {
-    if (catsElegibles.includes(item.cat)) {
-      const precioUnit = item.cant > 0 ? (item.totalItem / item.cant) : 0;
-      for (let k = 0; k < item.cant; k++) preciosUnitarios.push(precioUnit);
+    const precioUnit = item.cant > 0 ? (item.totalItem / item.cant) : 0;
+    pool[item.id] = pool[item.id] || [];
+    for (let k = 0; k < item.cant; k++) pool[item.id].push(precioUnit);
+  });
+  const subtotalCarrito = items.reduce((s, i) => s + i.totalItem, 0);
+
+  const detalles = [];
+  let montoTotal = 0;
+
+  promos.forEach(promo => {
+    const idsElegibles = promo.productosElegibles || [];
+    const idsRequeridos = promo.productosRequeridos || [];
+    const proporcion = promo.proporcion > 0 ? promo.proporcion : 1;
+    if (idsElegibles.length === 0 || idsRequeridos.length === 0) return;
+
+    // Unidades elegibles todavía disponibles (no consumidas por otra promo)
+    const preciosDisponibles = [];
+    idsElegibles.forEach(id => { (pool[id] || []).forEach(precio => preciosDisponibles.push({ id, precio })); });
+    let requeridasDisponibles = 0;
+    idsRequeridos.forEach(id => { requeridasDisponibles += (pool[id] || []).length; });
+
+    let unidadesConDescuento = Math.min(preciosDisponibles.length, Math.floor(requeridasDisponibles / proporcion));
+    if (promo.limiteUnidades > 0) unidadesConDescuento = Math.min(unidadesConDescuento, promo.limiteUnidades);
+    if (unidadesConDescuento <= 0) return;
+
+    if (promo.aplicaA === 'pedido') {
+      // Descuento sobre el pedido completo (una sola vez, si se cumple la
+      // condición de emparejamiento al menos 1 vez).
+      const monto = Math.round(subtotalCarrito * (promo.descPct / 100));
+      if (monto <= 0) return;
+      montoTotal += monto;
+      detalles.push({ id: promo.id, nombre: promo.nombre || (promo.descPct + '% OFF'), unidades: unidadesConDescuento, monto });
+      // Consumir las unidades usadas igual, para que otra promo no las reuse.
+      _promoComboConsumir(pool, idsRequeridos, Math.min(requeridasDisponibles, unidadesConDescuento * proporcion));
+      return;
     }
-    if (idsRequeridos.includes(item.id)) {
-      unidadesRequeridas += item.cant;
+
+    // aplicaA === 'unidad' (default): descontar las unidades más caras
+    // primero — más favorable y predecible para el cliente.
+    preciosDisponibles.sort((a, b) => b.precio - a.precio);
+    let sumaAfectada = 0;
+    const idsConsumidosElegibles = [];
+    for (let k = 0; k < unidadesConDescuento; k++) {
+      sumaAfectada += preciosDisponibles[k].precio;
+      idsConsumidosElegibles.push(preciosDisponibles[k].id);
     }
+    const monto = Math.round(sumaAfectada * (promo.descPct / 100));
+    if (monto <= 0) return;
+
+    // Consumir del pool: 1 unidad por cada id elegible afectado + las
+    // requeridas usadas, para que otra promo no las vuelva a contar.
+    idsConsumidosElegibles.forEach(id => { if (pool[id] && pool[id].length) pool[id].pop(); });
+    _promoComboConsumir(pool, idsRequeridos, unidadesConDescuento * proporcion);
+
+    montoTotal += monto;
+    detalles.push({ id: promo.id, nombre: promo.nombre || (promo.descPct + '% OFF'), unidades: unidadesConDescuento, monto });
   });
 
-  // Cuántas unidades elegibles alcanzan a "emparejarse" con el
-  // acompañamiento requerido, según la proporción configurada
-  // (proporcion=1 → 1 papas habilita el descuento en 1 burger).
-  const unidadesConDescuento = Math.min(preciosUnitarios.length, Math.floor(unidadesRequeridas / proporcion));
-  if (unidadesConDescuento <= 0) return { monto: 0, unidades: 0, nombre: '' };
+  return { montoTotal, detalles };
+}
 
-  // Se descuentan primero las unidades más caras — es lo más favorable
-  // y predecible para el cliente cuando hay más burgers elegibles que
-  // papas para emparejar.
-  preciosUnitarios.sort((a, b) => b - a);
-  let sumaAfectada = 0;
-  for (let k = 0; k < unidadesConDescuento; k++) sumaAfectada += preciosUnitarios[k];
-
-  const monto = Math.round(sumaAfectada * (promo.descPct / 100));
-  return { monto, unidades: unidadesConDescuento, nombre: promo.nombre || (promo.descPct + '% OFF') };
+// Descuenta `cantidad` unidades del pool, repartidas entre los ids dados
+// (en el orden en que aparecen), sin importar cuál específicamente.
+function _promoComboConsumir(pool, ids, cantidad) {
+  let restante = cantidad;
+  for (const id of ids) {
+    if (restante <= 0) break;
+    const arr = pool[id];
+    if (!arr || !arr.length) continue;
+    const sacar = Math.min(arr.length, restante);
+    arr.splice(0, sacar);
+    restante -= sacar;
+  }
 }
 
 function renderCartItems() {
@@ -1018,13 +1085,14 @@ function renderCartItems() {
 
  let totalFinal = subtotal + costoEnvio - montoDescuento;
 
- // Promo automática por combinación: solo si el cliente NO tiene un
+ // Promos automáticas por combinación: solo si el cliente NO tiene un
  // cupón manual aplicado (evita que se sumen dos descuentos a la vez).
  let montoCombo = 0;
- let resultCombo = { monto: 0, unidades: 0, nombre: '' };
+ let resultCombo = { montoTotal: 0, detalles: [] };
  if (!cuponAplicado) {
- resultCombo = calcularDescuentoComboAuto(carrito);
- montoCombo = resultCombo.monto;
+ const metodoActual = document.getElementById('p-metodo')?.value || 'Efectivo';
+ resultCombo = calcularDescuentoComboAuto(carrito, metodoActual);
+ montoCombo = resultCombo.montoTotal;
  if (montoCombo > 0) totalFinal -= montoCombo;
  }
 
@@ -1047,10 +1115,12 @@ function renderCartItems() {
  totalBox.parentNode.insertBefore(divDesc, totalBox);
  }
 
- if (montoCombo > 0) {
+ if (resultCombo.detalles.length > 0) {
  const divCombo = document.createElement('div');
  divCombo.id = "detalle-combo-ui";
- divCombo.innerHTML = `<div style="display: flex; justify-content: space-between; margin-bottom: 8px; color: #10b981; font-weight: 600;"><span>🎉 ${resultCombo.nombre} (${resultCombo.unidades} ud.)</span><span>-$${montoCombo.toLocaleString()}</span></div>`;
+ divCombo.innerHTML = resultCombo.detalles.map(d =>
+ `<div style="display: flex; justify-content: space-between; margin-bottom: 8px; color: #10b981; font-weight: 600;"><span>🎉 ${d.nombre} (${d.unidades} ud.)</span><span>-$${d.monto.toLocaleString()}</span></div>`
+ ).join('');
  totalBox.parentNode.insertBefore(divCombo, totalBox);
  }
 
@@ -1231,17 +1301,17 @@ async function _procesarPedidoImpl() {
  // regalo_papas / regalo_libre / regalo → sin descuento numérico; el regalo se acuerda en local
  }
 
- // Promo automática por combinación: mismo cálculo que en el carrito
+ // Promos automáticas por combinación: mismo cálculo que en el carrito
  // (calcularDescuentoComboAuto), para que el total cobrado sea siempre
  // igual al que el cliente vio antes de confirmar. Solo aplica si no
  // hay un cupón manual ya aplicado (misma regla que en renderCartItems).
  let montoCombo = 0;
- let comboAplicado = null;
+ let promosComboAplicadas = [];
  if (!cuponAplicado) {
- const resultCombo = calcularDescuentoComboAuto(carrito);
- if (resultCombo.monto > 0) {
- montoCombo = resultCombo.monto;
- comboAplicado = { nombre: resultCombo.nombre, unidades: resultCombo.unidades, monto: resultCombo.monto };
+ const resultCombo = calcularDescuentoComboAuto(carrito, pago);
+ if (resultCombo.montoTotal > 0) {
+ montoCombo = resultCombo.montoTotal;
+ promosComboAplicadas = resultCombo.detalles;
  }
  }
 
@@ -1287,9 +1357,9 @@ async function _procesarPedidoImpl() {
  envio: envio,
  descuento: montoDescuento,
  cuponUsado: detalleCupon,
- // Promo automática por combinación (ej: 30% en burgers por llevar
- // papas) — null si no aplicó ninguna en este pedido.
- promoComboAplicada: comboAplicado,
+ // Promos automáticas por combinación (ej: 30% en burgers por llevar
+ // papas) — array vacío si no aplicó ninguna en este pedido.
+ promoComboAplicada: promosComboAplicadas,
  // FIX: persistir código interno para trazabilidad en el panel admin
  codigoInterno: codigoInternoAplicado
    ? { codigo: codigoInternoAplicado.codigo, nombre: codigoInternoAplicado.nombre, tipo: codigoInternoAplicado.tipo }
@@ -2232,7 +2302,14 @@ function obtenerCuponDelDia() {
  return item.diaVenta === null || item.diaVenta === undefined || item.diaVenta === hoy;
  });
 
- if (promosVisibles.length === 0) {
+ // Tarjetas de las promos automáticas por combinación (vigentes hoy)
+ const combosVisibles = (window._promosComboAuto || []).filter(p => _promoComboEsVigente(p));
+ const combosHtml = combosVisibles.map(p => {
+ const cantBurgers = (p.productosElegibles || []).length;
+ return `<div class="promo-card"><div class="badge-promo">🎉 AUTOMÁTICA</div>${(p.img) ? `<img src="${p.img}" width="400" height="140" style="width:100%; height:140px; object-fit:cover; border-radius:10px; margin-bottom:10px;" loading="lazy" decoding="async" onerror="this.style.display='none'">` : ''}<h3 style="font-size:16px; font-weight:800;">${p.nombre}</h3><p style="font-size:12px; color:var(--text-light); margin: 5px 0;">${p.descripcion || (p.descPct + '% OFF en ' + cantBurgers + ' hamburguesa(s) seleccionadas')}</p><button class="btn-action" onclick="abrirPromoComboModal('${p.id}')" style="margin-top:12px; padding:10px; font-size:13px;">VER PROMO</button></div>`;
+ }).join('');
+
+ if (promosVisibles.length === 0 && combosVisibles.length === 0) {
  container.innerHTML = `<p style="color:var(--text-light); text-align:center; grid-column: 1/-1;">Hoy no hay promociones especiales activas.</p>`;
  return;
  }
@@ -2241,8 +2318,109 @@ function obtenerCuponDelDia() {
  container.innerHTML = promosVisibles.map(item => {
  const _safeJson = JSON.stringify(item).replace(/&/g, '&amp;').replace(/'/g, '&#39;');
  return `<div class="promo-card"><div class="badge-promo">${item.diaVenta === 2 ? 'SOLO POR HOY' : 'PROMO'}</div>${(item.img && item.img !== 'undefined') ? `<img src="${item.img}" width="400" height="140" style="width:100%; height:140px; object-fit:cover; border-radius:10px; margin-bottom:10px;" loading="lazy" decoding="async" onerror="this.style.display='none'">` : ''}<h3 style="font-size:16px; font-weight:800;">${item.n}</h3><p style="font-size:12px; color:var(--text-light); margin: 5px 0;">${item.d}</p><div class="price-container"><span class="old-price">$${item.pOriginal.toLocaleString()}</span><span class="new-price">$${item.p.toLocaleString()}</span></div><button class="btn-action" onclick='openModal(${_safeJson})' style="margin-top:12px; padding:10px; font-size:13px;"> AGREGAR PROMO</button></div>`;
- }).join('');
+ }).join('') + combosHtml;
  }
+
+// ── Modal de la promo automática (elegir burger + cantidad) ─────────────
+// Reutiliza el modal genérico #m-info (ya existía en el HTML sin uso).
+window.abrirPromoComboModal = function(promoId) {
+ const promo = (window._promosComboAuto || []).find(p => p.id === promoId);
+ if (!promo) return;
+
+ const burgers = (promo.productosElegibles || [])
+ .map(id => _buscarProductoEnMenu(id))
+ .filter(Boolean);
+ const papaId = (promo.productosRequeridos || [])[0];
+ const papa = papaId ? _buscarProductoEnMenu(papaId) : null;
+ const proporcion = promo.proporcion > 0 ? promo.proporcion : 1;
+
+ document.getElementById('m-info-title').textContent = promo.nombre;
+
+ const burgersHtml = burgers.map(b => {
+ const precio = (menuOverrides[b.id] && menuOverrides[b.id].precio) ? menuOverrides[b.id].precio : b.p;
+ return `<label class="custom-check" style="cursor:pointer;">
+   <span>${b.n} <span style="color:#6b7280;font-size:12px;">$${precio.toLocaleString()}</span></span>
+   <input type="radio" name="pcm-burger" value="${b.id}">
+   <div class="check-box"></div>
+ </label>`;
+ }).join('');
+
+ document.getElementById('m-info-body').innerHTML = `
+ <p style="margin-bottom:14px;">${promo.descripcion || ('Llevando ' + (papa ? papa.n : 'el acompañamiento requerido') + ', cada hamburguesa elegida tiene ' + promo.descPct + '% OFF.')}</p>
+ <div style="font-size:12px;color:#9ca3af;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Elegí tu hamburguesa</div>
+ <div id="pcm-burgers-list" style="margin-bottom:16px;">${burgersHtml}</div>
+ <div style="display:flex;align-items:center;justify-content:space-between;background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:10px 14px;margin-bottom:16px;">
+   <span style="font-size:13px;font-weight:700;">Cantidad</span>
+   <div style="display:flex;align-items:center;gap:14px;">
+     <button onclick="_pcmCambiarQty(-1)" style="width:32px;height:32px;border-radius:50%;border:1px solid var(--border);background:transparent;color:var(--white);font-size:16px;cursor:pointer;">-</button>
+     <span id="pcm-qty" style="font-weight:800;min-width:16px;text-align:center;">1</span>
+     <button onclick="_pcmCambiarQty(1)" style="width:32px;height:32px;border-radius:50%;border:1px solid var(--border);background:transparent;color:var(--white);font-size:16px;cursor:pointer;">+</button>
+   </div>
+ </div>
+ ${papa ? `<p style="font-size:11px;color:#6b7280;margin-bottom:16px;">Se agrega junto con <strong style="color:var(--white);">${proporcion}× ${papa.n}</strong> por cada hamburguesa, necesario para que aplique el descuento.</p>` : ''}
+ <button class="btn-action" onclick="_pcmConfirmarAgregar('${promoId}')" style="width:100%;padding:12px;">Agregar al carrito</button>
+ `;
+
+ window._pcmQty = 1;
+ document.getElementById('m-info').style.display = 'flex';
+};
+
+window._pcmCambiarQty = function(delta) {
+ window._pcmQty = Math.max(1, (window._pcmQty || 1) + delta);
+ const el = document.getElementById('pcm-qty');
+ if (el) el.textContent = window._pcmQty;
+};
+
+window._pcmConfirmarAgregar = function(promoId) {
+ const promo = (window._promosComboAuto || []).find(p => p.id === promoId);
+ if (!promo) return;
+ const seleccionado = document.querySelector('input[name="pcm-burger"]:checked');
+ if (!seleccionado) { alert('Elegí una hamburguesa para continuar.'); return; }
+ _promoComboAgregarAlCarrito(promoId, parseInt(seleccionado.value, 10), window._pcmQty || 1);
+};
+
+// Busca un producto por id recorriendo el MENU (ya trae .cat asignado
+// desde el primer render del catálogo).
+function _buscarProductoEnMenu(id) {
+ for (const cat of MENU) {
+ const found = cat.items.find(i => i.id === id);
+ if (found) return found;
+ }
+ return null;
+}
+
+// Agrega la hamburguesa elegida + la cantidad correspondiente del
+// acompañamiento requerido (según la proporción configurada) al carrito.
+// El descuento se aplica solo después, automáticamente, vía
+// calcularDescuentoComboAuto() al renderizar el carrito.
+window._promoComboAgregarAlCarrito = function(promoId, burgerId, cantidad) {
+ const promo = (window._promosComboAuto || []).find(p => p.id === promoId);
+ if (!promo) return;
+ const burger = _buscarProductoEnMenu(burgerId);
+ if (!burger) return;
+
+ cantidad = Math.max(1, parseInt(cantidad, 10) || 1);
+ const proporcion = promo.proporcion > 0 ? promo.proporcion : 1;
+ const papaId = (promo.productosRequeridos || [])[0];
+ const papa = papaId ? _buscarProductoEnMenu(papaId) : null;
+
+ const precioBurger = (menuOverrides[burger.id] && menuOverrides[burger.id].precio) ? menuOverrides[burger.id].precio : burger.p;
+ carrito.push({ ...burger, p: precioBurger, cant: cantidad, sin: [], con: [], obs: '', totalItem: precioBurger * cantidad });
+
+ if (papa) {
+ const cantPapas = cantidad * proporcion;
+ const precioPapa = (menuOverrides[papa.id] && menuOverrides[papa.id].precio) ? menuOverrides[papa.id].precio : papa.p;
+ carrito.push({ ...papa, p: precioPapa, cant: cantPapas, sin: [], con: [], obs: '', totalItem: precioPapa * cantPapas });
+ }
+
+ guardarCarritoPersistente();
+ updateCartUI();
+ renderCartItems();
+ document.getElementById('m-info').style.display = 'none';
+ toggleCart();
+ const t = document.getElementById('toast');
+ if (t) { t.classList.add('show'); setTimeout(() => { t.classList.remove('show'); }, 2000); }
+};
 
  function renderCenaHoy() {
  const container = document.getElementById('cena-hoy-container');
@@ -2553,25 +2731,26 @@ async function cargarMenuOverrides() {
     }
   }
 
-  // ── 2b. onSnapshot de la promo automática por combinación ─────────────
+  // ── 2b. onSnapshot de las promos automáticas por combinación ──────────
   // (ej: 30% OFF en burgers si el carrito también lleva papas)
   if (!_promoComboAutoListenerActivo) {
     try {
-      db.collection('config_menu').doc('promo_combo_auto')
+      db.collection('promos_combo')
         .onSnapshot(
           snap => {
-            window._promoComboAuto = snap.exists ? snap.data() : null;
+            window._promosComboAuto = snap.docs.map(d => ({ id: d.id, ...d.data() }));
             if (typeof renderCartItems === 'function' && document.getElementById('cart-view')?.classList.contains('open')) {
               renderCartItems();
             }
+            if (typeof renderPromosCatalog === 'function') renderPromosCatalog();
           },
           err => {
-            console.warn('[MenuOverrides] onSnapshot error (promo_combo_auto):', err.code || err.message);
+            console.warn('[MenuOverrides] onSnapshot error (promos_combo):', err.code || err.message);
           }
         );
       _promoComboAutoListenerActivo = true;
     } catch (e) {
-      console.warn('[MenuOverrides] No se pudo registrar listener de promo_combo_auto:', e.message);
+      console.warn('[MenuOverrides] No se pudo registrar listener de promos_combo:', e.message);
     }
   }
 
@@ -4841,97 +5020,289 @@ let admPromosData = [];
 let admPromoEditando = null; // null = nueva promo
 
 // ═══════════════════════════════════════════════════════════════════
-//  Admin — Promo automática por combinación (config_menu/promo_combo_auto)
+//  Admin — Promos automáticas por combinación (colección promos_combo)
+//  Mismo patrón que el CRUD de promos catálogo: botón "Configurar promo
+//  nueva" + formulario inline + lista de tarjetas con editar/eliminar.
 // ═══════════════════════════════════════════════════════════════════
-
-// Categorías del menú que tiene sentido ofrecer como "elegibles para el
-// descuento" — se excluye Promos (ya son combos con precio propio) y
-// Acompañamientos (normalmente es el lado "requerido", no el elegible,
-// aunque el admin puede tildar cualquier categoría si lo necesita).
-function _pcCategoriasDisponibles() {
- return MENU.map(c => c.cat);
-}
+let admPromosComboData = [];
+let admPromoComboEditando = null; // null = nueva
 
 async function admCargarPromoCombo() {
- const catsList = document.getElementById('pc-cats-list');
- const prodList = document.getElementById('pc-prod-list');
- if (!catsList || !prodList) return;
-
- let cfg = {};
+ const cont = document.getElementById('adm-promos-combo-lista');
+ if (!cont) return;
+ cont.innerHTML = '<p style="color:#9ca3af;padding:12px;text-align:center;">Cargando promos automáticas...</p>';
  try {
- const snap = await db.collection('config_menu').doc('promo_combo_auto').get();
- if (snap.exists) cfg = snap.data();
- } catch(e) { console.warn('[PromoCombo Admin]', e); }
+ const snap = await db.collection('promos_combo').get();
+ admPromosComboData = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+ } catch(e) {
+ console.warn('[PromoCombo Admin]', e);
+ admPromosComboData = [];
+ }
+ admRenderPromosCombo();
+}
 
- const catsElegibles = cfg.categoriasElegibles || [];
- const idsRequeridos = cfg.productosRequeridos || [];
+// Productos "Hamburguesas" (todas las categorías que empiezan con ese
+// nombre) — son los candidatos típicos para "productos elegibles".
+function _pcBurgersDisponibles() {
+ return MENU.filter(c => c.cat.startsWith('Hamburguesas'));
+}
 
- // Checklist de categorías (para elegir qué hamburguesas entran en el descuento)
- catsList.innerHTML = _pcCategoriasDisponibles().map(cat => {
- const checked = catsElegibles.includes(cat);
- const inputId = 'pc-cat-' + cat.replace(/\s+/g, '-');
- return `<label style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg);border:1px solid var(--border);border-radius:8px;font-size:12px;color:var(--white);cursor:pointer;">
- <input type="checkbox" id="${inputId}" value="${cat}" ${checked ? 'checked' : ''} style="width:16px;height:16px;accent-color:var(--primary);">
- ${cat}
- </label>`;
+function admRenderPromosCombo() {
+ const cont = document.getElementById('adm-promos-combo-lista');
+ if (!cont) return;
+
+ let html = `
+ <div style="font-size:13px;font-weight:800;color:var(--white);margin-bottom:2px;">🎉 Promos automáticas por combinación</div>
+ <p style="font-size:11px;color:#9ca3af;margin:0 0 12px;line-height:1.5;">Se aplican solas en el carrito del cliente, sin código. Ej: <em>30% OFF en cada Simple/Doble si el pedido también lleva papas</em> — cada papas habilita el descuento en una hamburguesa.</p>
+ <button onclick="admAbrirFormPromoCombo(null)"
+ style="width:100%;margin-bottom:16px;padding:12px;background:rgba(16,185,129,.1);border:2px dashed #10b981;color:#10b981;border-radius:12px;font-size:14px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">＋ CONFIGURAR PROMO NUEVA</button>
+ <div id="pcf-form" style="display:none;background:#111;border:1px solid #10b981;border-radius:14px;padding:16px;margin-bottom:18px;">
+ <div style="font-size:13px;font-weight:800;color:#10b981;margin-bottom:12px;" id="pcf-form-title">NUEVA PROMO AUTOMÁTICA</div>
+
+ <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+   <div style="grid-column:1/-1;">
+     <div style="font-size:10px;color:#9ca3af;font-weight:700;margin-bottom:4px;">NOMBRE (se muestra en el carrito y en Promos) *</div>
+     <input id="pcf-nombre" type="text" placeholder='Ej: 30% OFF Simples y Dobles' style="width:100%;padding:9px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--white);font-size:13px;outline:none;box-sizing:border-box;">
+   </div>
+
+   <div style="grid-column:1/-1;">
+     <div style="font-size:10px;color:#9ca3af;font-weight:700;margin-bottom:4px;">DESCRIPCIÓN BREVE (se muestra al cliente al abrir la promo)</div>
+     <input id="pcf-desc" type="text" placeholder="Ej: Llevando papas, cada hamburguesa Simple o Doble tiene 30% OFF" style="width:100%;padding:9px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--white);font-size:13px;outline:none;box-sizing:border-box;">
+   </div>
+
+   <div style="grid-column:1/-1;">
+     <div style="font-size:10px;color:#9ca3af;font-weight:700;margin-bottom:4px;">URL DE IMAGEN (tarjeta en Promos)</div>
+     <input id="pcf-img" type="url" placeholder="https://i.ibb.co/..." style="width:100%;padding:9px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--white);font-size:12px;outline:none;box-sizing:border-box;">
+   </div>
+
+   <div>
+     <div style="font-size:10px;color:#9ca3af;font-weight:700;margin-bottom:4px;">% DESCUENTO</div>
+     <input id="pcf-pct" type="number" min="1" max="100" placeholder="30" style="width:100%;padding:9px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--white);font-size:13px;outline:none;box-sizing:border-box;">
+   </div>
+
+   <div>
+     <div style="font-size:10px;color:#9ca3af;font-weight:700;margin-bottom:4px;">PAPAS POR BURGER</div>
+     <input id="pcf-proporcion" type="number" min="1" value="1" style="width:100%;padding:9px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--white);font-size:13px;outline:none;box-sizing:border-box;">
+   </div>
+
+   <div>
+     <div style="font-size:10px;color:#9ca3af;font-weight:700;margin-bottom:4px;">EL DESCUENTO APLICA A</div>
+     <select id="pcf-aplica-a" style="width:100%;padding:9px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--white);font-size:13px;outline:none;box-sizing:border-box;">
+       <option value="unidad">Cada hamburguesa elegible</option>
+       <option value="pedido">Al pedido completo</option>
+     </select>
+   </div>
+
+   <div>
+     <div style="font-size:10px;color:#9ca3af;font-weight:700;margin-bottom:4px;">LÍMITE DE UNIDADES POR PEDIDO</div>
+     <input id="pcf-limite" type="number" min="0" placeholder="0 = sin límite" style="width:100%;padding:9px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--white);font-size:13px;outline:none;box-sizing:border-box;">
+   </div>
+
+   <div>
+     <div style="font-size:10px;color:#9ca3af;font-weight:700;margin-bottom:4px;">MEDIO DE PAGO</div>
+     <select id="pcf-metodo-pago" style="width:100%;padding:9px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--white);font-size:13px;outline:none;box-sizing:border-box;">
+       <option value="todos">Todos los medios</option>
+       <option value="efectivo">Solo Efectivo</option>
+     </select>
+   </div>
+
+   <div style="grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+     <div>
+       <div style="font-size:9px;color:#6b7280;margin-bottom:3px;">VÁLIDA DESDE (opcional)</div>
+       <input id="pcf-fecha-desde" type="date" style="width:100%;padding:9px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--white);font-size:12px;outline:none;box-sizing:border-box;color-scheme:dark;">
+     </div>
+     <div>
+       <div style="font-size:9px;color:#6b7280;margin-bottom:3px;">VÁLIDA HASTA (opcional)</div>
+       <input id="pcf-fecha-hasta" type="date" style="width:100%;padding:9px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--white);font-size:12px;outline:none;box-sizing:border-box;color-scheme:dark;">
+     </div>
+   </div>
+   <div style="grid-column:1/-1;font-size:9px;color:#6b7280;margin-top:-4px;">Sin fechas = disponible siempre.</div>
+
+   <div style="grid-column:1/-1;margin-top:6px;">
+     <div style="font-size:10px;color:#9ca3af;font-weight:700;margin-bottom:6px;">HAMBURGUESAS QUE ENTRAN EN EL DESCUENTO</div>
+     <div id="pcf-burgers-list" style="display:flex;flex-direction:column;gap:5px;max-height:240px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:8px;"></div>
+   </div>
+
+   <div style="grid-column:1/-1;margin-top:6px;">
+     <div style="font-size:10px;color:#9ca3af;font-weight:700;margin-bottom:6px;">PRODUCTOS QUE HABILITAN EL DESCUENTO (ej: variantes de papas)</div>
+     <div id="pcf-prod-req-list" style="display:flex;flex-direction:column;gap:5px;max-height:220px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:8px;"></div>
+   </div>
+
+   <div style="grid-column:1/-1;background:rgba(16,185,129,.06);border:1px solid rgba(16,185,129,.2);border-radius:8px;padding:10px 12px;display:flex;align-items:center;justify-content:space-between;margin-top:4px;">
+     <div style="font-size:12px;font-weight:700;color:#10b981;">Promo activa</div>
+     <label style="position:relative;display:inline-block;width:44px;height:24px;cursor:pointer;flex-shrink:0;">
+       <input type="checkbox" id="pcf-activo" style="opacity:0;width:0;height:0;"
+         onchange="const s=this.nextElementSibling;const d=s.nextElementSibling;s.style.background=this.checked?'#10b981':'#333';d.style.left=this.checked?'22px':'2px';">
+       <span style="position:absolute;inset:0;background:#333;border-radius:12px;transition:.3s;"></span>
+       <span style="position:absolute;top:2px;left:2px;width:20px;height:20px;background:#fff;border-radius:50%;transition:.3s;box-shadow:0 1px 4px rgba(0,0,0,.4);"></span>
+     </label>
+   </div>
+ </div>
+
+ <div style="display:flex;gap:8px;margin-top:12px;">
+   <button onclick="admGuardarFormPromoCombo()" style="flex:1;padding:10px;background:#10b981;color:#000;border:none;border-radius:8px;font-weight:800;font-size:13px;cursor:pointer;">GUARDAR</button>
+   <button onclick="admCerrarFormPromoCombo()" style="padding:10px 16px;background:rgba(255,255,255,.05);border:1px solid var(--border);color:#9ca3af;border-radius:8px;font-size:13px;cursor:pointer;">Cancelar</button>
+ </div>
+ <div id="pcf-error" style="color:#ef4444;font-size:11px;margin-top:6px;text-align:center;"></div>
+ </div>
+ <div id="pcf-cards" style="display:flex;flex-direction:column;gap:10px;"></div>`;
+
+ cont.innerHTML = html;
+
+ const cardsCont = document.getElementById('pcf-cards');
+ if (admPromosComboData.length === 0) {
+ cardsCont.innerHTML = '<p style="color:#6b7280;font-size:12px;text-align:center;padding:10px 0;">Todavía no configuraste ninguna promo automática.</p>';
+ return;
+ }
+
+ const hoyStr = _promoComboHoyStr();
+ cardsCont.innerHTML = admPromosComboData.map(p => {
+ const activo = p.activo === true;
+ let vigencia = '';
+ if (p.fechaDesde && hoyStr < p.fechaDesde) {
+ vigencia = `<span style="background:rgba(59,130,246,.15);color:#60a5fa;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;">Programada — arranca ${p.fechaDesde.split('-').reverse().join('/')}</span>`;
+ } else if (p.fechaHasta && hoyStr > p.fechaHasta) {
+ vigencia = `<span style="background:rgba(107,114,128,.2);color:#9ca3af;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;">Finalizada el ${p.fechaHasta.split('-').reverse().join('/')}</span>`;
+ } else if (p.fechaDesde || p.fechaHasta) {
+ vigencia = `<span style="background:rgba(16,185,129,.15);color:#10b981;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;">${p.fechaDesde||'?'} → ${p.fechaHasta||'?'}</span>`;
+ }
+ const cantBurgers = (p.productosElegibles || []).length;
+ const cantReq = (p.productosRequeridos || []).length;
+ return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;">
+ <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;">
+   <div style="font-size:13px;font-weight:800;color:${activo ? 'var(--white)' : '#6b7280'};">${p.nombre || '(sin nombre)'}</div>
+   <span style="background:${activo ? 'rgba(16,185,129,.15)' : 'rgba(107,114,128,.15)'};color:${activo ? '#10b981' : '#6b7280'};font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;">${activo ? 'ACTIVA' : 'INACTIVA'}</span>
+ </div>
+ <div style="font-size:11px;color:#9ca3af;margin-bottom:8px;">${p.descPct || 0}% OFF · ${cantBurgers} burger(s) elegibles · ${cantReq} producto(s) requeridos · ${p.aplicaA === 'pedido' ? 'al pedido completo' : 'por unidad'}</div>
+ <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">
+   ${vigencia}
+   ${p.soloEfectivo ? '<span style="background:rgba(59,130,246,.12);color:#60a5fa;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;">Solo Efectivo</span>' : ''}
+   ${p.limiteUnidades > 0 ? `<span style="background:rgba(245,158,11,.12);color:var(--primary);font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;">Límite: ${p.limiteUnidades} ud.</span>` : ''}
+ </div>
+ <div style="display:flex;gap:8px;">
+   <button onclick="admAbrirFormPromoCombo('${p.id}')" style="flex:1;padding:8px;background:rgba(255,255,255,.05);border:1px solid var(--border);color:var(--white);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">Editar</button>
+   <button onclick="admEliminarPromoCombo('${p.id}')" style="padding:8px 14px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:#ef4444;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">Eliminar</button>
+ </div>
+ </div>`;
  }).join('');
+}
 
- // Checklist de productos puntuales (para elegir qué variantes de papas/acompañamiento habilitan el descuento)
- let prodHtml = '';
+window.admAbrirFormPromoCombo = function(id) {
+ admPromoComboEditando = id;
+ const form = document.getElementById('pcf-form');
+ const title = document.getElementById('pcf-form-title');
+ const p = id ? admPromosComboData.find(x => x.id === id) : null;
+
+ title.textContent = p ? 'EDITAR PROMO AUTOMÁTICA' : 'NUEVA PROMO AUTOMÁTICA';
+
+ const idsElegibles = p?.productosElegibles || [];
+ const idsRequeridos = p?.productosRequeridos || [];
+
+ // Checklist de hamburguesas puntuales (formato "checkout": tildar cada burger)
+ let burgersHtml = '';
+ _pcBurgersDisponibles().forEach(cat => {
+ burgersHtml += `<div style="font-size:9px;color:#6b7280;font-weight:700;margin:6px 0 2px;text-transform:uppercase;">${cat.cat}</div>`;
+ cat.items.forEach(item => {
+ const checked = idsElegibles.includes(item.id);
+ burgersHtml += `<label style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:var(--bg);border-radius:6px;font-size:12px;color:var(--white);cursor:pointer;">
+   <input type="checkbox" class="pcf-burger-check" value="${item.id}" ${checked ? 'checked' : ''} style="width:15px;height:15px;accent-color:#10b981;flex-shrink:0;">
+   <span style="flex:1;">${item.n}</span>
+ </label>`;
+ });
+ });
+ document.getElementById('pcf-burgers-list').innerHTML = burgersHtml;
+
+ // Checklist de productos requeridos (cualquier producto del menú — normalmente papas)
+ let reqHtml = '';
  MENU.forEach(cat => {
  cat.items.forEach(item => {
  const checked = idsRequeridos.includes(item.id);
- prodHtml += `<label style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--bg);border:1px solid var(--border);border-radius:8px;font-size:12px;color:var(--white);cursor:pointer;">
- <input type="checkbox" class="pc-prod-check" value="${item.id}" ${checked ? 'checked' : ''} style="width:16px;height:16px;accent-color:var(--primary);flex-shrink:0;">
- <span style="flex:1;">${item.n}</span>
- <span style="color:#6b7280;font-size:10px;">${cat.cat}</span>
+ reqHtml += `<label style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:var(--bg);border-radius:6px;font-size:12px;color:var(--white);cursor:pointer;">
+   <input type="checkbox" class="pcf-req-check" value="${item.id}" ${checked ? 'checked' : ''} style="width:15px;height:15px;accent-color:#10b981;flex-shrink:0;">
+   <span style="flex:1;">${item.n}</span>
+   <span style="color:#6b7280;font-size:10px;">${cat.cat}</span>
  </label>`;
  });
  });
- prodList.innerHTML = prodHtml;
+ document.getElementById('pcf-prod-req-list').innerHTML = reqHtml;
 
- const activoEl = document.getElementById('pc-activo');
- const nombreEl = document.getElementById('pc-nombre');
- const pctEl = document.getElementById('pc-pct');
- const propEl = document.getElementById('pc-proporcion');
- if (activoEl) activoEl.checked = cfg.activo === true;
- if (nombreEl) nombreEl.value = cfg.nombre || '';
- if (pctEl) pctEl.value = cfg.descPct || '';
- if (propEl) propEl.value = cfg.proporcion || 1;
-}
+ document.getElementById('pcf-nombre').value = p?.nombre || '';
+ document.getElementById('pcf-desc').value = p?.descripcion || '';
+ document.getElementById('pcf-img').value = p?.img || '';
+ document.getElementById('pcf-pct').value = p?.descPct || '';
+ document.getElementById('pcf-proporcion').value = p?.proporcion || 1;
+ document.getElementById('pcf-aplica-a').value = p?.aplicaA || 'unidad';
+ document.getElementById('pcf-limite').value = p?.limiteUnidades || '';
+ document.getElementById('pcf-metodo-pago').value = p?.soloEfectivo ? 'efectivo' : 'todos';
+ document.getElementById('pcf-fecha-desde').value = p?.fechaDesde || '';
+ document.getElementById('pcf-fecha-hasta').value = p?.fechaHasta || '';
 
-window.admGuardarPromoCombo = async function() {
- const fb = document.getElementById('pc-feedback');
- const activo = document.getElementById('pc-activo')?.checked || false;
- const nombre = document.getElementById('pc-nombre')?.value.trim() || '';
- const descPct = parseInt(document.getElementById('pc-pct')?.value, 10) || 0;
- const proporcion = parseInt(document.getElementById('pc-proporcion')?.value, 10) || 1;
- const categoriasElegibles = Array.from(document.querySelectorAll('#pc-cats-list input[type="checkbox"]:checked')).map(el => el.value);
- const productosRequeridos = Array.from(document.querySelectorAll('.pc-prod-check:checked')).map(el => parseInt(el.value, 10));
+ const activoCb = document.getElementById('pcf-activo');
+ const activo = p?.activo === true;
+ activoCb.checked = activo;
+ const track = activoCb.nextElementSibling, thumb = track.nextElementSibling;
+ track.style.background = activo ? '#10b981' : '#333';
+ thumb.style.left = activo ? '22px' : '2px';
 
- function _mostrarFb(ok, msg) {
- if (!fb) return;
- fb.style.display = 'block';
- fb.style.background = ok ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)';
- fb.style.border = ok ? '1px solid #10b981' : '1px solid #ef4444';
- fb.style.color = ok ? '#10b981' : '#ef4444';
- fb.textContent = msg;
- }
+ document.getElementById('pcf-error').textContent = '';
+ form.style.display = 'block';
+ form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+};
 
- if (activo) {
- if (!descPct || descPct <= 0 || descPct > 100) return _mostrarFb(false, 'Ingresá un % de descuento válido (1-100).');
- if (categoriasElegibles.length === 0) return _mostrarFb(false, 'Elegí al menos una categoría para el descuento.');
- if (productosRequeridos.length === 0) return _mostrarFb(false, 'Elegí al menos un producto que habilite el descuento (ej: las papas).');
- }
+window.admCerrarFormPromoCombo = function() {
+ document.getElementById('pcf-form').style.display = 'none';
+ admPromoComboEditando = null;
+};
+
+window.admGuardarFormPromoCombo = async function() {
+ const err = document.getElementById('pcf-error');
+ err.textContent = '';
+
+ const nombre = document.getElementById('pcf-nombre').value.trim();
+ const descripcion = document.getElementById('pcf-desc').value.trim();
+ const img = document.getElementById('pcf-img').value.trim();
+ const descPct = parseInt(document.getElementById('pcf-pct').value, 10) || 0;
+ const proporcion = parseInt(document.getElementById('pcf-proporcion').value, 10) || 1;
+ const aplicaA = document.getElementById('pcf-aplica-a').value;
+ const limiteUnidades = parseInt(document.getElementById('pcf-limite').value, 10) || 0;
+ const soloEfectivo = document.getElementById('pcf-metodo-pago').value === 'efectivo';
+ const fechaDesde = document.getElementById('pcf-fecha-desde').value || null;
+ const fechaHasta = document.getElementById('pcf-fecha-hasta').value || null;
+ const activo = document.getElementById('pcf-activo').checked;
+ const productosElegibles = Array.from(document.querySelectorAll('.pcf-burger-check:checked')).map(el => parseInt(el.value, 10));
+ const productosRequeridos = Array.from(document.querySelectorAll('.pcf-req-check:checked')).map(el => parseInt(el.value, 10));
+
+ if (!nombre) { err.textContent = 'Ingresá un nombre para la promo.'; return; }
+ if (!descPct || descPct <= 0 || descPct > 100) { err.textContent = 'Ingresá un % de descuento válido (1-100).'; return; }
+ if (productosElegibles.length === 0) { err.textContent = 'Tildá al menos una hamburguesa para el descuento.'; return; }
+ if (productosRequeridos.length === 0) { err.textContent = 'Tildá al menos un producto que habilite el descuento (ej: las papas).'; return; }
+ if (fechaDesde && fechaHasta && fechaDesde > fechaHasta) { err.textContent = 'La fecha "desde" no puede ser posterior a "hasta".'; return; }
+
+ const datos = {
+ nombre, descripcion, img, descPct, proporcion, aplicaA, limiteUnidades,
+ soloEfectivo, fechaDesde, fechaHasta, activo, productosElegibles, productosRequeridos
+ };
 
  try {
- await db.collection('config_menu').doc('promo_combo_auto').set({
- activo, nombre, descPct, proporcion, categoriasElegibles, productosRequeridos
- });
- _mostrarFb(true, activo ? '✅ Promo automática activa y guardada.' : 'Guardado (promo desactivada).');
- setTimeout(() => { if (fb) fb.style.display = 'none'; }, 4000);
+ if (admPromoComboEditando) {
+ await db.collection('promos_combo').doc(admPromoComboEditando).set(datos, { merge: true });
+ } else {
+ await db.collection('promos_combo').add(datos);
+ }
+ admCerrarFormPromoCombo();
+ await admCargarPromoCombo();
  } catch(e) {
- _mostrarFb(false, 'Error al guardar: ' + e.message);
+ err.textContent = 'Error al guardar: ' + e.message;
+ }
+};
+
+window.admEliminarPromoCombo = async function(id) {
+ if (!confirm('¿Eliminar esta promo automática? Esta acción no se puede deshacer.')) return;
+ try {
+ await db.collection('promos_combo').doc(id).delete();
+ await admCargarPromoCombo();
+ } catch(e) {
+ alert('Error al eliminar: ' + e.message);
  }
 };
 
@@ -4939,6 +5310,7 @@ async function admCargarPromos() {
  const cont = document.getElementById('adm-promos-lista');
  if (!cont) return;
  cont.innerHTML = '<p style="color:#9ca3af;padding:20px;text-align:center;">Cargando promos...</p>';
+
 
  // Cargar overrides desde Firestore
  let ovPromos = {};
