@@ -626,6 +626,9 @@ window.cambiarSucursalPrincipal = () => {
  renderCartItems();
  actualizarEstadoLocal();
  validarDatosEnvio && validarDatosEnvio();
+ // La opción "Mercado Pago" depende de la sucursal (cada una tiene su
+ // propia cuenta/token) — re-evaluar visibilidad al cambiar.
+ if (typeof _syncMpOptionVisibility === 'function') _syncMpOptionVisibility();
 };
 
 // BATCH RENDERING — carga progresiva del catálogo 
@@ -1521,7 +1524,7 @@ async function _procesarPedidoImpl() {
 
  // MERCADO PAGO 
  if (pago === 'Mercado Pago') {
- mostrarSucesoPedido('mercadopago', `https://wa.me/${SUC_MAP[sucId].wsp}?text=${t}`, total);
+ mostrarSucesoPedido('mercadopago', `https://wa.me/${SUC_MAP[sucId].wsp}?text=${t}`, total, sucId);
  } else {
  // Efectivo / Tarjeta → pantalla verde → WhatsApp
  // Respetar flag wspClienteActivo (configurable desde el panel de Configuración)
@@ -2002,7 +2005,7 @@ window.validarDatosEnvio = function() {
 // 
 // PANTALLA DE ÉXITO — se muestra al finalizar un pedido
 // 
-async function mostrarSucesoPedido(tipo, waUrl, total) {
+async function mostrarSucesoPedido(tipo, waUrl, total, sucursalId) {
  let overlay = document.getElementById('pedido-exito-overlay');
  if (!overlay) {
  overlay = document.createElement('div');
@@ -2026,16 +2029,14 @@ async function mostrarSucesoPedido(tipo, waUrl, total) {
  if (tipo === 'mercadopago') {
  redirMsg.innerHTML = 'Generando link de Mercado Pago...';
  try {
- // SEGURIDAD: antes esto leía el Access Token directamente desde
- // Firestore (config_menu/mercadopago) y llamaba a la API de MP desde
- // el navegador — cualquiera podía copiar el token de producción desde
- // la consola. Ahora el token vive solo en el servidor (variable de
- // entorno MERCADOPAGO_ACCESS_TOKEN) y este fetch solo pide el link ya
+ // SEGURIDAD: el Access Token nunca llega al navegador — vive del lado
+ // del servidor, uno distinto por sucursal (variables de entorno
+ // MERCADOPAGO_ACCESS_TOKEN_<SUCURSAL>). Este fetch solo pide el link ya
  // generado, sin exponer ninguna credencial.
  const prefRes = await fetch('/api/config?action=mp-preference', {
  method: 'POST',
  headers: { 'Content-Type': 'application/json' },
- body: JSON.stringify({ total, backUrl: waUrl })
+ body: JSON.stringify({ total, backUrl: waUrl, sucursalId })
  });
  const prefData = await prefRes.json().catch(() => ({}));
  if (!prefRes.ok || !prefData.init_point) throw new Error(prefData.error || ('mp_api_' + prefRes.status));
@@ -4653,84 +4654,95 @@ function admSwitchTab(tab, btn) {
 // 
 // ADMIN — MERCADO PAGO
 // 
+// Nombre de cada sucursal para mostrar en el admin, con la calle que usa
+// el propio Ulises para identificarlas (además del ID interno del sistema).
+const MP_SUCURSAL_LABEL = {
+ Centro:    'Pellegrini (Centro)',
+ Norte:     'Alberdi (Norte)',
+ Sur:       'Sur',
+ Funes:     'Funes',
+ Cafferata: 'Cafferata'
+};
+
 async function admCargarMercadoPago() {
- const dot = document.getElementById('adm-mp-status-dot');
- const txt = document.getElementById('adm-mp-status-txt');
- const sub = document.getElementById('adm-mp-status-sub');
+ const cont = document.getElementById('pc-mp-sucursales-list');
  const purgeBox = document.getElementById('adm-mp-purge-box');
+ if (!cont) return;
+
+ let cfg = {};
  try {
  const snap = await window.db.collection('config_menu').doc('mercadopago').get();
- // Cargar estado del toggle activo/inactivo
- const mpActivo = snap.exists ? (snap.data()?.mpActivo !== false) : false;
- window._mpActivo = mpActivo;
- const toggleEl = document.getElementById('adm-mp-master-toggle');
- const toggleDesc = document.getElementById('adm-mp-toggle-desc');
- if (toggleEl) toggleEl.checked = mpActivo;
- if (toggleDesc) toggleDesc.textContent = mpActivo
-   ? 'Activado — los clientes ven la opción Mercado Pago'
-   : 'Desactivado — la opción no aparece para los clientes';
-
- // Aviso de token viejo: si el documento todavía tiene el campo
- // accessToken (versión anterior, expuesta al cliente), mostrar el
- // botón para purgarlo.
- if (purgeBox) purgeBox.style.display = (snap.exists && snap.data()?.accessToken) ? 'block' : 'none';
-
- // Estado real del token: se verifica en el SERVIDOR (nunca se lee
- // el valor desde Firestore ni se muestra en este panel).
- const status = await fetch('/api/config?action=mp-status').then(r => r.json()).catch(() => ({ configured: false }));
- window._mpActivo = mpActivo && !!status.configured;
- _syncMpOptionVisibility();
- if (status.configured) {
- if (dot) dot.style.background = '#10b981';
- if (txt) txt.textContent = 'Access Token configurado en el servidor';
- if (sub) sub.textContent = 'Los pagos online están habilitados para los clientes';
- } else {
- if (dot) dot.style.background = '#6b7280';
- if (txt) txt.textContent = 'No configurado';
- if (sub) sub.textContent = 'Configurá MERCADOPAGO_ACCESS_TOKEN en Vercel para activar los pagos online';
- }
+ if (snap.exists) cfg = snap.data();
  } catch(e) { console.warn('[MP Admin]', e); }
+
+ const togglesGuardados = cfg.mpActivoPorSucursal || {};
+ if (purgeBox) purgeBox.style.display = cfg.accessToken ? 'block' : 'none';
+
+ // Armar las 5 tarjetas primero con estado "verificando..." y consultar
+ // el servidor por sucursal en paralelo (sin bloquear el render inicial).
+ cont.innerHTML = MP_SUCURSALES.map(suc => _pcMpCardHtml(suc, togglesGuardados[suc] === true, null)).join('');
+
+ MP_SUCURSALES.forEach(async (suc) => {
+ let configurado = false;
+ try {
+ const status = await fetch('/api/config?action=mp-status&sucursalId=' + suc).then(r => r.json());
+ configurado = !!status.configured;
+ } catch(e) {}
+ window._mpConfiguradoPorSucursal = window._mpConfiguradoPorSucursal || {};
+ window._mpConfiguradoPorSucursal[suc] = configurado;
+ window._mpEstado[suc] = (togglesGuardados[suc] === true) && configurado;
+ _pcActualizarCard(suc, configurado);
+ });
+
+ _syncMpOptionVisibility();
 }
 
-// Verificación manual del estado (botón "VERIFICAR CONFIGURACIÓN")
-window.admMpVerificarConfig = async function() {
- const fb = document.getElementById('adm-mp-feedback');
- if (fb) {
- fb.style.display = 'block';
- fb.style.background = 'rgba(245,158,11,0.1)';
- fb.style.border = '1px solid var(--primary)';
- fb.style.color = 'var(--primary)';
- fb.textContent = 'Verificando...';
- }
- try {
- const status = await fetch('/api/config?action=mp-status').then(r => r.json());
- if (fb) {
- if (status.configured) {
- fb.style.background = 'rgba(16,185,129,0.15)';
- fb.style.border = '1px solid #10b981';
- fb.style.color = '#10b981';
- fb.textContent = '✅ El servidor tiene el token configurado.';
+function _pcMpCardHtml(suc, activoGuardado, configurado) {
+ const label = MP_SUCURSAL_LABEL[suc] || suc;
+ const envVar = 'MERCADOPAGO_ACCESS_TOKEN_' + suc.toUpperCase();
+ return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px;" id="pc-mp-card-${suc}">
+ <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+ <div style="font-size:14px;font-weight:800;color:var(--white);">${label}</div>
+ <label class="adm-toggle" style="flex-shrink:0;width:44px;height:24px;">
+ <input type="checkbox" id="adm-mp-master-toggle-${suc}" ${activoGuardado ? 'checked' : ''} onchange="admMpToggleActivo('${suc}', this.checked)">
+ <span class="adm-toggle-slider"></span>
+ </label>
+ </div>
+ <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+ <div id="pc-mp-dot-${suc}" style="width:10px;height:10px;border-radius:50%;background:#6b7280;flex-shrink:0;"></div>
+ <div style="flex:1;">
+ <div style="font-size:12px;font-weight:700;color:var(--white);" id="pc-mp-txt-${suc}">Verificando...</div>
+ <div style="font-size:11px;color:#9ca3af;margin-top:1px;" id="adm-mp-toggle-desc-${suc}">${activoGuardado ? 'Activado' : 'Desactivado'} — ${activoGuardado ? 'los clientes de esta sucursal ven' : 'la opción no aparece para'} Mercado Pago</div>
+ </div>
+ </div>
+ <div style="background:#111;border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-family:monospace;font-size:11px;color:#00b1ea;">
+ ${envVar}
+ </div>
+ </div>`;
+}
+
+function _pcActualizarCard(suc, configurado) {
+ const dot = document.getElementById('pc-mp-dot-' + suc);
+ const txt = document.getElementById('pc-mp-txt-' + suc);
+ if (!dot || !txt) return;
+ if (configurado) {
+ dot.style.background = '#10b981';
+ txt.textContent = 'Token configurado en el servidor';
  } else {
- fb.style.background = 'rgba(239,68,68,0.15)';
- fb.style.border = '1px solid #ef4444';
- fb.style.color = '#ef4444';
- fb.textContent = '⚠ Todavía no está configurado MERCADOPAGO_ACCESS_TOKEN en Vercel.';
+ dot.style.background = '#6b7280';
+ txt.textContent = 'No configurado';
  }
- }
+}
+
+// Verificación manual de las 5 sucursales a la vez (botón "VERIFICAR TODAS")
+window.admMpVerificarTodas = async function() {
  await admCargarMercadoPago();
- } catch(e) {
- if (fb) {
- fb.style.background = 'rgba(239,68,68,0.15)';
- fb.style.border = '1px solid #ef4444';
- fb.style.color = '#ef4444';
- fb.textContent = 'Error al verificar: ' + e.message;
- }
- }
 };
 
 // Elimina el campo accessToken que había quedado guardado en Firestore
-// en la versión anterior (documento de lectura pública → estaba expuesto
-// a cualquiera que abriera la consola del navegador en la tienda).
+// en la versión anterior de una sola cuenta compartida (documento de
+// lectura pública → estaba expuesto a cualquiera que abriera la consola
+// del navegador en la tienda).
 window.admMpPurgarTokenViejo = async function() {
  if (!confirm('¿Eliminar el token guardado en la base de datos?\n\nAsegurate de haber rotado el token en Mercado Pago si todavía no lo hiciste.')) return;
  try {
@@ -4747,31 +4759,44 @@ window.admMpPurgarTokenViejo = async function() {
 
 // ── MERCADO PAGO — TOGGLE ACTIVO / INACTIVO ──────────────────────────────────
 // Sincroniza la visibilidad de la opción MP en el select del checkout
+// Sucursales válidas del sistema (mismo enum que la regla de Firestore
+// pedidoValido()/ordenValida()). Cada una puede tener su propia cuenta
+// de Mercado Pago.
+const MP_SUCURSALES = ['Centro', 'Norte', 'Sur', 'Funes', 'Cafferata'];
+
+// window._mpEstado[sucId] = true/false → resultado combinado de
+// "¿el admin activó MP para esta sucursal?" Y "¿el servidor tiene el
+// token de esa sucursal configurado?". Se arma en _initMpStatus().
+window._mpEstado = {};
+
 function _syncMpOptionVisibility() {
  const opt = document.querySelector('#p-metodo option[value="Mercado Pago"]');
  if (!opt) return;
- const activo = window._mpActivo === true;
+ const sucId = document.getElementById('main-sucursal')?.value;
+ const activo = sucId ? (window._mpEstado[sucId] === true) : false;
  opt.disabled = !activo;
  opt.style.display = activo ? '' : 'none';
- // Si estaba seleccionado y se desactiva, resetear a Efectivo
+ // Si estaba seleccionado y se desactiva (ej: cambió a una sucursal sin MP), resetear a Efectivo
  const sel = document.getElementById('p-metodo');
  if (sel && sel.value === 'Mercado Pago' && !activo) sel.value = 'Efectivo';
 }
 
-// Función llamada desde el toggle del admin
-window.admMpToggleActivo = async function(checked) {
- const desc = document.getElementById('adm-mp-toggle-desc');
+// Función llamada desde el toggle del admin, uno por sucursal
+window.admMpToggleActivo = async function(sucId, checked) {
+ const desc = document.getElementById('adm-mp-toggle-desc-' + sucId);
  try {
-   await window.db.collection('config_menu').doc('mercadopago').set({ mpActivo: checked }, { merge: true });
-   window._mpActivo = checked;
+   await window.db.collection('config_menu').doc('mercadopago').set(
+     { mpActivoPorSucursal: { [sucId]: checked } },
+     { merge: true }
+   );
+   window._mpEstado[sucId] = checked && !!window._mpConfiguradoPorSucursal?.[sucId];
    _syncMpOptionVisibility();
    if (desc) desc.textContent = checked
-     ? 'Activado — los clientes ven la opción Mercado Pago'
-     : 'Desactivado — la opción no aparece para los clientes';
+     ? 'Activado — los clientes de esta sucursal ven la opción Mercado Pago'
+     : 'Desactivado — la opción no aparece para los clientes de esta sucursal';
  } catch(e) {
    console.error('[MP Toggle]', e);
-   // Revertir el toggle si falla
-   const toggleEl = document.getElementById('adm-mp-master-toggle');
+   const toggleEl = document.getElementById('adm-mp-master-toggle-' + sucId);
    if (toggleEl) toggleEl.checked = !checked;
  }
 };
@@ -4780,19 +4805,28 @@ window.admMpToggleActivo = async function(checked) {
 (function _initMpStatus() {
  function _load() {
    if (!window.db) { setTimeout(_load, 800); return; }
-   // "mpActivo" es un booleano simple del panel admin (no es sensible,
-   // puede seguir viviendo en Firestore). Si el servidor tiene el token
-   // configurado se verifica con /api/mp-status, que NUNCA revela el
-   // valor del token — solo dice si está presente o no.
+   // El toggle activo/inactivo por sucursal vive en Firestore (no es
+   // sensible). Si el servidor tiene el token de CADA sucursal
+   // configurado se verifica con /api/config?action=mp-status, que NUNCA
+   // revela el valor del token — solo dice si está presente o no.
    Promise.all([
      window.db.collection('config_menu').doc('mercadopago').get().catch(() => null),
-     fetch('/api/config?action=mp-status').then(r => r.json()).catch(() => ({ configured: false }))
-   ]).then(([snap, status]) => {
-     const mpActivoToggle = (snap && snap.exists) ? (snap.data()?.mpActivo !== false) : false;
-     window._mpActivo = mpActivoToggle && !!(status && status.configured);
+     ...MP_SUCURSALES.map(suc =>
+       fetch('/api/config?action=mp-status&sucursalId=' + suc)
+         .then(r => r.json())
+         .catch(() => ({ configured: false }))
+     )
+   ]).then(([snap, ...estados]) => {
+     const togglesGuardados = (snap && snap.exists) ? (snap.data()?.mpActivoPorSucursal || {}) : {};
+     window._mpConfiguradoPorSucursal = {};
+     MP_SUCURSALES.forEach((suc, i) => {
+       const configurado = !!(estados[i] && estados[i].configured);
+       window._mpConfiguradoPorSucursal[suc] = configurado;
+       window._mpEstado[suc] = (togglesGuardados[suc] === true) && configurado;
+     });
      _syncMpOptionVisibility();
    }).catch(() => {
-     window._mpActivo = false;
+     MP_SUCURSALES.forEach(suc => { window._mpEstado[suc] = false; });
      _syncMpOptionVisibility();
    });
  }
