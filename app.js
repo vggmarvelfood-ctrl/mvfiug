@@ -1414,6 +1414,12 @@ async function _procesarPedidoImpl() {
  gps: ordenDatos.gps,
  productos: carritoSnapshot.map(i => ({ n: i.n, cant: i.cant, precio: i.p })),
  zona: (typeof _wsSucursalDetectada !== 'undefined' ? _wsSucursalDetectada : null),
+ // FIX: la regla de Firestore para 'orders' (ordenValida()) exige un
+ // campo llamado exactamente "ts" — antes solo se mandaba "fecha", así
+ // que el create se rechazaba con "Missing or insufficient permissions"
+ // aunque el usuario estuviera autenticado y el resto de los datos
+ // fueran válidos.
+ ts: firebase.firestore.FieldValue.serverTimestamp(),
  fecha: firebase.firestore.FieldValue.serverTimestamp(),
  fechaISO: new Date().toISOString(),
  });
