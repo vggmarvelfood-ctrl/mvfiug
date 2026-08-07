@@ -1001,6 +1001,29 @@ function _promoComboConsumir(pool, ids, cantidad) {
   }
 }
 
+// Detecta si el carrito ya tiene la combinación de productos que activa
+// alguna promo "solo efectivo" vigente — sin importar qué método de pago
+// esté elegido ahora mismo. Se usa para bloquear el selector de pago y
+// evitar que el cliente cambie a Tarjeta/MP y pierda el descuento sin
+// darse cuenta (o peor, que el pedido salga con la promo aplicada y un
+// método de pago que no correspondía).
+function _promoComboEfectivoRequeridoPor(items) {
+  const promos = (window._promosComboAuto || []).filter(p => _promoComboEsVigente(p) && p.soloEfectivo);
+  for (const promo of promos) {
+    const idsElegibles = promo.productosElegibles || [];
+    const idsRequeridos = promo.productosRequeridos || [];
+    if (idsElegibles.length === 0 || idsRequeridos.length === 0) continue;
+    const proporcion = promo.proporcion > 0 ? promo.proporcion : 1;
+    let elegibles = 0, requeridos = 0;
+    items.forEach(item => {
+      if (idsElegibles.includes(item.id)) elegibles += item.cant;
+      if (idsRequeridos.includes(item.id)) requeridos += item.cant;
+    });
+    if (elegibles > 0 && Math.floor(requeridos / proporcion) > 0) return promo;
+  }
+  return null;
+}
+
 function renderCartItems() {
  const list = document.getElementById('cart-items-list');
  let subtotal = 0;
@@ -1089,11 +1112,37 @@ function renderCartItems() {
  // cupón manual aplicado (evita que se sumen dos descuentos a la vez).
  let montoCombo = 0;
  let resultCombo = { montoTotal: 0, detalles: [] };
- if (!cuponAplicado) {
  const metodoActual = document.getElementById('p-metodo')?.value || 'Efectivo';
+ if (!cuponAplicado) {
  resultCombo = calcularDescuentoComboAuto(carrito, metodoActual);
  montoCombo = resultCombo.montoTotal;
  if (montoCombo > 0) totalFinal -= montoCombo;
+ }
+
+ // Si el carrito ya arma la combinación de una promo "solo efectivo",
+ // bloquear el selector en Efectivo — así el cliente no puede cambiar a
+ // Tarjeta/MP sin darse cuenta de que pierde el descuento (o peor, que el
+ // pedido salga con la promo aplicada pero un método de pago que no
+ // corresponde).
+ const promoEfectivo = cuponAplicado ? null : _promoComboEfectivoRequeridoPor(carrito);
+ const selMetodo = document.getElementById('p-metodo');
+ const avisoMetodo = document.getElementById('p-metodo-bloqueado-aviso');
+ if (selMetodo) {
+ Array.from(selMetodo.options).forEach(opt => {
+ opt.disabled = !!promoEfectivo && opt.value !== 'Efectivo';
+ });
+ if (promoEfectivo && selMetodo.value !== 'Efectivo') {
+ selMetodo.value = 'Efectivo';
+ toggleVuelto && toggleVuelto();
+ }
+ }
+ if (avisoMetodo) {
+ if (promoEfectivo) {
+ avisoMetodo.style.display = 'block';
+ avisoMetodo.textContent = `Este pedido tiene la promo "${promoEfectivo.nombre}", que es solo con Efectivo — el medio de pago queda bloqueado en Efectivo mientras la lleves en el carrito.`;
+ } else {
+ avisoMetodo.style.display = 'none';
+ }
  }
 
  document.getElementById('res-sub').innerText = `$${subtotal.toLocaleString()}`;
@@ -1273,6 +1322,16 @@ async function _procesarPedidoImpl() {
 
  const pago = document.getElementById('p-metodo').value;
  const vuelto = parseFloat(document.getElementById('p-vuelto').value) || 0;
+
+ // Respaldo server-side (aunque el selector ya viene bloqueado desde
+ // renderCartItems): si el carrito arma la combinación de una promo
+ // solo-efectivo, no dejar salir el pedido con otro método de pago.
+ if (!cuponAplicado) {
+ const promoEfectivo = _promoComboEfectivoRequeridoPor(carrito);
+ if (promoEfectivo && pago !== 'Efectivo') {
+ return alert(`Este pedido tiene la promo "${promoEfectivo.nombre}", que es solo con Efectivo. Elegí Efectivo como medio de pago para continuar.`);
+ }
+ }
 
  // --- NUEVO: Obtener el horario estimado antes de armar la orden ---
  const horarioEstimadoFinal = obtenerHorarioEstimado(isDelivery);
