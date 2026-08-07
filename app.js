@@ -1024,6 +1024,26 @@ function _promoComboEfectivoRequeridoPor(items) {
   return null;
 }
 
+// Igual que la anterior, pero también cubre las promos CATÁLOGO (las que
+// se agregan como un ítem fijo al carrito vía openModal, ej: "30% OFF
+// Compartir Capitán América") que tengan su campo "Medio de pago"
+// restringido — antes ese campo solo se mostraba como badge informativo
+// y no bloqueaba nada en el checkout.
+// Devuelve { metodo: 'Efectivo'|'Mercado Pago', nombre } o null.
+function _detectarRestriccionMetodoPago(items) {
+  const promoCombo = _promoComboEfectivoRequeridoPor(items);
+  if (promoCombo) return { metodo: 'Efectivo', nombre: promoCombo.nombre };
+
+  for (const item of items) {
+    if (item.metodoPago === 'efectivo') return { metodo: 'Efectivo', nombre: item.n };
+    if (item.metodoPago === 'mp') return { metodo: 'Mercado Pago', nombre: item.n };
+    // 'transferencia' no tiene un método equivalente en el selector del
+    // cliente (Efectivo/Tarjeta/Mercado Pago) — no se puede bloquear a
+    // algo que no existe como opción, así que se deja pasar sin forzar.
+  }
+  return null;
+}
+
 function renderCartItems() {
  const list = document.getElementById('cart-items-list');
  let subtotal = 0;
@@ -1119,27 +1139,27 @@ function renderCartItems() {
  if (montoCombo > 0) totalFinal -= montoCombo;
  }
 
- // Si el carrito ya arma la combinación de una promo "solo efectivo",
- // bloquear el selector en Efectivo — así el cliente no puede cambiar a
- // Tarjeta/MP sin darse cuenta de que pierde el descuento (o peor, que el
- // pedido salga con la promo aplicada pero un método de pago que no
- // corresponde).
- const promoEfectivo = cuponAplicado ? null : _promoComboEfectivoRequeridoPor(carrito);
+ // Si el carrito ya arma la combinación de una promo "solo efectivo" (o
+ // trae una promo catálogo con medio de pago restringido), bloquear el
+ // selector en ese método — así el cliente no puede cambiarlo sin darse
+ // cuenta de que pierde el descuento (o que el pedido sale con un medio
+ // de pago que no corresponde).
+ const restriccionPago = cuponAplicado ? null : _detectarRestriccionMetodoPago(carrito);
  const selMetodo = document.getElementById('p-metodo');
  const avisoMetodo = document.getElementById('p-metodo-bloqueado-aviso');
  if (selMetodo) {
  Array.from(selMetodo.options).forEach(opt => {
- opt.disabled = !!promoEfectivo && opt.value !== 'Efectivo';
+ opt.disabled = !!restriccionPago && opt.value !== restriccionPago.metodo;
  });
- if (promoEfectivo && selMetodo.value !== 'Efectivo') {
- selMetodo.value = 'Efectivo';
+ if (restriccionPago && selMetodo.value !== restriccionPago.metodo) {
+ selMetodo.value = restriccionPago.metodo;
  toggleVuelto && toggleVuelto();
  }
  }
  if (avisoMetodo) {
- if (promoEfectivo) {
+ if (restriccionPago) {
  avisoMetodo.style.display = 'block';
- avisoMetodo.textContent = `Este pedido tiene la promo "${promoEfectivo.nombre}", que es solo con Efectivo — el medio de pago queda bloqueado en Efectivo mientras la lleves en el carrito.`;
+ avisoMetodo.textContent = `"${restriccionPago.nombre}" es solo con ${restriccionPago.metodo} — no acepta Tarjeta ni otro medio de pago. El selector queda bloqueado en ${restriccionPago.metodo} mientras la lleves en el carrito.`;
  } else {
  avisoMetodo.style.display = 'none';
  }
@@ -1325,11 +1345,12 @@ async function _procesarPedidoImpl() {
 
  // Respaldo server-side (aunque el selector ya viene bloqueado desde
  // renderCartItems): si el carrito arma la combinación de una promo
- // solo-efectivo, no dejar salir el pedido con otro método de pago.
+ // solo-efectivo, o trae una promo catálogo con medio de pago
+ // restringido, no dejar salir el pedido con otro método de pago.
  if (!cuponAplicado) {
- const promoEfectivo = _promoComboEfectivoRequeridoPor(carrito);
- if (promoEfectivo && pago !== 'Efectivo') {
- return alert(`Este pedido tiene la promo "${promoEfectivo.nombre}", que es solo con Efectivo. Elegí Efectivo como medio de pago para continuar.`);
+ const restriccionPago = _detectarRestriccionMetodoPago(carrito);
+ if (restriccionPago && pago !== restriccionPago.metodo) {
+ return alert(`"${restriccionPago.nombre}" es solo con ${restriccionPago.metodo}. Elegí ${restriccionPago.metodo} como medio de pago para continuar.`);
  }
  }
 
