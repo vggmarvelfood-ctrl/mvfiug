@@ -2161,16 +2161,25 @@ window.validarDatosEnvio = function() {
   }
 };
 
-// 
+// ────────────────────────────────────────────────────────────────────
 // PANTALLA DE ÉXITO — se muestra al finalizar un pedido
-// 
+//
+// MEJORA: antes esta pantalla esperaba 7.2s en silencio (solo un spinner)
+// antes de redirigir a WhatsApp, sin countdown visible, sin botón para
+// apurar el paso y sin ningún aviso si el cliente cerraba la pestaña —
+// eso causó al menos un pedido "perdido" (el cliente cerró antes de que
+// se abriera WhatsApp, y como el local esperaba enterarse por ahí, el
+// pedido pasó desapercibido aunque ya estaba guardado en Firestore).
+// Ahora: countdown visible + botón "Abrir WhatsApp ahora" + advertencia
+// del navegador si intenta salir antes de tiempo.
+// ────────────────────────────────────────────────────────────────────
 async function mostrarSucesoPedido(tipo, waUrl, total, sucursalId) {
  let overlay = document.getElementById('pedido-exito-overlay');
  if (!overlay) {
  overlay = document.createElement('div');
  overlay.id = 'pedido-exito-overlay';
  overlay.innerHTML = `
- <div id="peo-card"> <div id="peo-check"></div> <div id="peo-title">¡Tu Pedido ya fue enviado al local!</div> <div id="peo-sub">Recibiras una notificacion de confirmación!</div> <div id="peo-msg">¡Gracias por preferirnos!</div> <div id="peo-redirect-msg"></div> <div id="peo-spinner"></div> </div>`;
+ <div id="peo-card"> <div id="peo-check"></div> <div id="peo-title">¡Tu Pedido ya fue enviado al local!</div> <div id="peo-sub">Recibiras una notificacion de confirmación!</div> <div id="peo-msg">¡Gracias por preferirnos!</div> <div id="peo-warning"></div> <div id="peo-redirect-msg"></div> <div id="peo-spinner"></div> <button id="peo-btn-manual" style="display:none;"></button> </div>`;
  document.body.appendChild(overlay);
  }
  overlay.style.cssText = 'position:fixed;inset:0;z-index:99998;background:linear-gradient(135deg,#064e3b 0%,#065f46 50%,#047857 100%);display:flex;align-items:center;justify-content:center;padding:24px;';
@@ -2179,11 +2188,25 @@ async function mostrarSucesoPedido(tipo, waUrl, total, sucursalId) {
  document.getElementById('peo-check').style.cssText = 'font-size:80px;display:block;margin:0 auto 16px;color:#bbf7d0;';
  document.getElementById('peo-title').style.cssText = 'font-size:26px;font-weight:800;color:#fff;margin-bottom:8px;';
  document.getElementById('peo-sub').style.cssText = 'font-size:16px;color:rgba(255,255,255,.85);margin-bottom:6px;';
- document.getElementById('peo-msg').style.cssText = 'font-size:17px;font-weight:700;color:#d1fae5;margin-bottom:24px;';
+ document.getElementById('peo-msg').style.cssText = 'font-size:17px;font-weight:700;color:#d1fae5;margin-bottom:18px;';
+ const warningEl = document.getElementById('peo-warning');
  const redirMsg = document.getElementById('peo-redirect-msg');
  const spinner = document.getElementById('peo-spinner');
+ const btnManual = document.getElementById('peo-btn-manual');
+ warningEl.style.cssText = 'background:rgba(0,0,0,.25);border:1px solid rgba(255,255,255,.3);border-radius:10px;padding:10px 14px;font-size:13px;font-weight:700;color:#fff;margin-bottom:16px;display:none;';
  redirMsg.style.cssText = 'color:rgba(255,255,255,.8);font-size:13px;margin-bottom:14px;';
  spinner.style.cssText = 'width:26px;height:26px;border:3px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:peoSpin 1s linear infinite;margin:0 auto;';
+ btnManual.style.cssText = 'display:none;width:100%;margin-top:16px;padding:13px;background:#fff;border:none;border-radius:12px;color:#065f46;font-weight:800;font-size:14px;cursor:pointer;';
+
+ // ── Caso: confirmación por WhatsApp desactivada (sin URL) ────────────
+ // BUGFIX: antes esto igual esperaba y redirigía a una URL "null". Ahora
+ // simplemente confirma que el pedido quedó guardado, sin countdown ni
+ // redirección de ningún tipo.
+ if (tipo === 'whatsapp' && !waUrl) {
+ redirMsg.innerHTML = 'Tu pedido ya está guardado en el sistema. En breve te contactamos para confirmar.';
+ spinner.style.display = 'none';
+ return;
+ }
 
  if (tipo === 'mercadopago') {
  redirMsg.innerHTML = 'Generando link de Mercado Pago...';
@@ -2199,19 +2222,65 @@ async function mostrarSucesoPedido(tipo, waUrl, total, sucursalId) {
  });
  const prefData = await prefRes.json().catch(() => ({}));
  if (!prefRes.ok || !prefData.init_point) throw new Error(prefData.error || ('mp_api_' + prefRes.status));
- redirMsg.innerHTML = 'Link generado · Abriendo Mercado Pago...';
  spinner.style.display = 'none';
- setTimeout(() => _peoCerrarYRedirigir(overlay, prefData.init_point), 7800);
+ _peoIniciarCountdown(overlay, prefData.init_point, 'Mercado Pago', 6);
  } catch(err) {
  console.warn('[MP]', err.message);
- redirMsg.innerHTML = 'No se pudo generar el link MP.<br><span style="font-size:12px;">Pedido guardado. Redirigiendo al WhatsApp...</span>';
  spinner.style.display = 'none';
- setTimeout(() => _peoCerrarYRedirigir(overlay, waUrl), 7500);
+ redirMsg.innerHTML = 'No se pudo generar el link MP. Pedido guardado igual.';
+ if (waUrl) {
+ _peoIniciarCountdown(overlay, waUrl, 'WhatsApp', 6);
+ }
  }
  } else {
- redirMsg.innerHTML = 'Redirigiendo a WhatsApp...';
- setTimeout(() => _peoCerrarYRedirigir(overlay, waUrl), 7200);
+ spinner.style.display = 'none';
+ _peoIniciarCountdown(overlay, waUrl, 'WhatsApp', 6);
  }
+}
+
+// Countdown visible + botón manual + aviso de "no cierres esta pantalla"
+// con beforeunload activo mientras cuenta. segundos por defecto: 6.
+function _peoIniciarCountdown(overlay, url, destino, segundos) {
+ const warningEl = document.getElementById('peo-warning');
+ const redirMsg = document.getElementById('peo-redirect-msg');
+ const btnManual = document.getElementById('peo-btn-manual');
+
+ warningEl.style.display = 'block';
+ warningEl.innerHTML = ' No cierres ni salgas de esta pantalla — tu pedido ya está guardado, pero necesitamos que lo confirmes por ' + destino + ' para que el local lo vea.';
+
+ btnManual.style.display = 'block';
+ btnManual.textContent = 'Abrir ' + destino + ' ahora';
+
+ // Advertencia nativa del navegador si intenta cerrar/recargar/navegar
+ // fuera antes de que termine el countdown (funciona en la gran mayoría
+ // de navegadores mobile/desktop, aunque el texto exacto lo define el
+ // propio navegador, no se puede personalizar).
+ const _beforeUnloadHandler = (e) => {
+ e.preventDefault();
+ e.returnValue = '';
+ return '';
+ };
+ window.addEventListener('beforeunload', _beforeUnloadHandler);
+
+ let restante = segundos;
+ redirMsg.innerHTML = `Abriendo ${destino} en ${restante}s...`;
+ const intervalo = setInterval(() => {
+ restante--;
+ if (restante <= 0) {
+ clearInterval(intervalo);
+ window.removeEventListener('beforeunload', _beforeUnloadHandler);
+ _peoCerrarYRedirigir(overlay, url);
+ return;
+ }
+ redirMsg.innerHTML = `Abriendo ${destino} en ${restante}s...`;
+ }, 1000);
+
+ // Si usa el botón manual, también hay que limpiar el timer y el aviso
+ btnManual.onclick = () => {
+ clearInterval(intervalo);
+ window.removeEventListener('beforeunload', _beforeUnloadHandler);
+ _peoCerrarYRedirigir(overlay, url);
+ };
 }
 
 function _peoCerrarYRedirigir(overlay, url) {
