@@ -2619,8 +2619,8 @@ window._promoComboAgregarAlCarrito = function(promoId, burgerId, cantidad, reque
  ...burgerDelDia,
  id: `PROMO-DIA-NORMAL-${hoy}`,
  n: `PROMO ${burgerDelDia.n} + Papas chicas`,
- pOriginal: 15300,
- p: 14300,
+ pOriginal: 16300,
+ p: 15800,
  badge: "OPCIÓN CARNE",
  ings: [] // CORRECCIÓN
  },
@@ -2628,8 +2628,8 @@ window._promoComboAgregarAlCarrito = function(promoId, burgerId, cantidad, reque
  ...burgerDelDia,
  id: `PROMO-DIA-VEGGIE-${hoy}`,
  n: `PROMO ${burgerDelDia.n} VEGGIE + Papas chicas`,
- pOriginal: 13000,
- p: 11600,
+ pOriginal: 15000,
+ p: 13000,
  badge: "OPCIÓN VEGGIE",
  ings: [] // CORRECCIÓN
  }
