@@ -370,7 +370,7 @@ const EXTRAS_GLOBALES = [
   { id: "700", n: "Extra Medallon", p: 2100, tipo: "burger" },
   { id: "713", n: "Panceta", p: 900, tipo: "papas" },
   { id: "710", n: "Verdeo", p: 900, tipo: "papas" },
-  { id: "711", n: "Cheddar", p: 900, tipo: "papas" },
+  { id: "711", n: "Dip de Cheddar", p: 900, tipo: "papas" },
   { id: "300", n: "Sumar Bebida", p: 3300, tipo: "promo" } // Actualizado según precio Pepsi 500cc (3300)
 ];
 
@@ -788,8 +788,10 @@ window.openModal = (p) => {
  // Extras para Papas
  extrasParaMostrar = EXTRAS_GLOBALES.filter(e => e.tipo === "papas");
  } else if (nombreProd.includes("promo") || categoriaProd.includes("promo")) {
- // NUEVO: Extras para la Promo (Bebida)
- extrasParaMostrar = EXTRAS_GLOBALES.filter(e => e.tipo === "promo");
+ // Las promos/combos (ej: "Compartir Hulk") ya incluyen papas armadas,
+ // así que se ofrecen juntos los extras de bebida Y los de papas
+ // (Panceta, Verdeo, Dip de Cheddar) — antes solo se mostraba uno u otro.
+ extrasParaMostrar = EXTRAS_GLOBALES.filter(e => e.tipo === "promo" || e.tipo === "papas");
  }
 
  const extSec = document.getElementById('m-sec-extras');
