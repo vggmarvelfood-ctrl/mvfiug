@@ -533,6 +533,7 @@ document.addEventListener('DOMContentLoaded', () => {
  // Renderizar Menú y Datos
  if (typeof renderMenu === 'function') renderMenu();
  if (typeof renderCenaHoy === 'function') renderCenaHoy();
+  if (typeof renderCombosDelDia === 'function') renderCombosDelDia();
  if (typeof renderZonas === 'function') renderZonas();
 
  // Mostrar botón de reorden en carrito si hay historial
@@ -2454,6 +2455,7 @@ function obtenerCuponDelDia() {
    String(_hoyDate.getDate()).padStart(2, '0');
  const promosVisibles = PROMOS_DATA.filter(item => {
  if (item._oculta) return false;
+ if (item.esCombo) return false; // los combos armados se muestran en Inicio, debajo de "Marvel del día"
  // Validar rango de fechas si existe
  if (item.fechaDesde && _hoyStr < item.fechaDesde) return false;
  if (item.fechaHasta && _hoyStr > item.fechaHasta) return false;
@@ -2638,6 +2640,39 @@ window._promoComboAgregarAlCarrito = function(promoId, burgerId, cantidad, reque
  }).join('')}</div>`;
  }
 
+ // Sección "Nuestros combos elegidos para vos" — se muestra en Inicio,
+ // debajo de "Marvel del día". Son promos catálogo con esCombo:true
+ // (antes vivían mezcladas en la pestaña Promos junto con el resto).
+ function renderCombosDelDia() {
+ const section = document.getElementById('section-combos-dia');
+ const container = document.getElementById('combos-dia-container');
+ if (!section || !container || typeof PROMOS_DATA === 'undefined') return;
+
+ const hoyDate = new Date();
+ const hoy = hoyDate.getDay();
+ const hoyStr = hoyDate.getFullYear() + '-' + String(hoyDate.getMonth() + 1).padStart(2, '0') + '-' + String(hoyDate.getDate()).padStart(2, '0');
+
+ const combos = PROMOS_DATA.filter(item => {
+ if (!item.esCombo) return false;
+ if (item._oculta) return false;
+ if (item.fechaDesde && hoyStr < item.fechaDesde) return false;
+ if (item.fechaHasta && hoyStr > item.fechaHasta) return false;
+ return item.diaVenta === null || item.diaVenta === undefined || item.diaVenta === hoy;
+ });
+
+ if (combos.length === 0) {
+ section.style.display = 'none';
+ container.innerHTML = '';
+ return;
+ }
+
+ section.style.display = 'block';
+ container.innerHTML = `<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">${combos.map(item => {
+ const _safeJson = JSON.stringify(item).replace(/&/g, '&amp;').replace(/'/g, '&#39;');
+ return `<div class="promo-card"><div class="badge-promo">PROMO</div>${(item.img && item.img !== 'undefined') ? `<img src="${item.img}" width="400" height="140" style="width:100%; height:140px; object-fit:cover; border-radius:10px; margin-bottom:10px;" loading="lazy" decoding="async" onerror="this.style.display='none'">` : ''}<h3 style="font-size:15px; font-weight:800;">${item.n}</h3><p style="font-size:12px; color:var(--text-light); margin: 5px 0;">${item.d}</p><div class="price-container"><span class="old-price">$${item.pOriginal.toLocaleString()}</span><span class="new-price">$${item.p.toLocaleString()}</span></div><button class="btn-action" onclick='openModal(${_safeJson})' style="margin-top:10px; padding:9px; font-size:12px;">AGREGAR PROMO</button></div>`;
+ }).join('')}</div>`;
+ }
+
  // Render automático del tab Locales: botones por sucursal con precios y botón ver mapa
  function renderZonasCards() {
  const container = document.getElementById('zonas-cards-container');
@@ -2805,7 +2840,7 @@ let _promoComboAutoListenerActivo = false; // guard anti-doble-suscripción (pro
 // arrastra un valor viejo de una vuelta anterior.
 function _aplicarPromosOverride(ovInput) {
   const ov = (ovInput && typeof ovInput === 'object') ? ovInput : {};
-  const CAMPOS_PROMO = ['p', 'pOriginal', 'diaVenta', 'n', 'd', 'img', 'fechaDesde', 'fechaHasta', 'codigoPromo', 'metodoPago', 'segundaUnidad'];
+  const CAMPOS_PROMO = ['p', 'pOriginal', 'diaVenta', 'n', 'd', 'img', 'fechaDesde', 'fechaHasta', 'codigoPromo', 'metodoPago', 'segundaUnidad', 'esCombo'];
 
   // 1. Partir siempre de la base original y reaplicar overrides vigentes
   const reconstruido = PROMOS_DATA_BASE.map(base => {
@@ -2864,6 +2899,7 @@ async function cargarMenuOverrides() {
     console.warn('[MenuOverrides] Timeout 6s — renderizando con datos base.');
     if (typeof renderMenu === 'function') renderMenu();
     if (typeof renderPromosCatalog === 'function') renderPromosCatalog();
+            if (typeof renderCombosDelDia === 'function') renderCombosDelDia();
   }, 6000);
 
   // ── 1. onSnapshot de precios/disponibilidad (se registra UNA SOLA VEZ) ─
@@ -2903,6 +2939,7 @@ async function cargarMenuOverrides() {
             _aplicarPromosOverride(snap.exists ? snap.data() : {});
             console.log('[MenuOverrides] promos_override actualizado ✓');
             if (typeof renderPromosCatalog === 'function') renderPromosCatalog();
+            if (typeof renderCombosDelDia === 'function') renderCombosDelDia();
           },
           err => {
             console.warn('[MenuOverrides] onSnapshot error (promos_override):', err.code || err.message);
@@ -2926,6 +2963,7 @@ async function cargarMenuOverrides() {
               renderCartItems();
             }
             if (typeof renderPromosCatalog === 'function') renderPromosCatalog();
+            if (typeof renderCombosDelDia === 'function') renderCombosDelDia();
           },
           err => {
             console.warn('[MenuOverrides] onSnapshot error (promos_combo):', err.code || err.message);
@@ -2963,6 +3001,7 @@ async function cargarMenuOverrides() {
   //   · actualizarVistasPerfil() → cupon-del-dia-box y cupones-semana-box
   try {
     if (typeof renderPromosCatalog === 'function') renderPromosCatalog();
+            if (typeof renderCombosDelDia === 'function') renderCombosDelDia();
   } catch (e) {
     console.warn('[MenuOverrides] renderPromosCatalog falló:', e.message);
   }
@@ -5661,6 +5700,20 @@ function admRenderPromos() {
     </label>
   </div>
 
+  <!-- Es un combo (se muestra en Inicio, debajo de "Marvel del día") -->
+  <div style="grid-column:1/-1;background:rgba(59,130,246,.06);border:1px solid rgba(59,130,246,.2);border-radius:8px;padding:10px 12px;display:flex;align-items:center;justify-content:space-between;">
+    <div>
+      <div style="font-size:12px;font-weight:700;color:#60a5fa;">Es un combo armado</div>
+      <div style="font-size:10px;color:#6b7280;margin-top:2px;">Aparece en Inicio, debajo de "Marvel del día" — no en la pestaña Promos</div>
+    </div>
+    <label style="position:relative;display:inline-block;width:44px;height:24px;cursor:pointer;flex-shrink:0;">
+      <input type="checkbox" id="pf-es-combo" style="opacity:0;width:0;height:0;"
+        onchange="const s=this.nextElementSibling;const d=s.nextElementSibling;s.style.background=this.checked?'#60a5fa':'#333';d.style.left=this.checked?'22px':'2px';">
+      <span style="position:absolute;inset:0;background:#333;border-radius:12px;transition:.3s;"></span>
+      <span style="position:absolute;top:2px;left:2px;width:20px;height:20px;background:#fff;border-radius:50%;transition:.3s;box-shadow:0 1px 4px rgba(0,0,0,.4);"></span>
+    </label>
+  </div>
+
   <!-- Imagen -->
   <div style="grid-column:1/-1;">
     <div style="font-size:10px;color:#9ca3af;font-weight:700;margin-bottom:4px;">URL DE IMAGEN</div>
@@ -5735,6 +5788,7 @@ function admRenderPromos() {
  <span style="background:rgba(245,158,11,.12);color:var(--primary);font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;"> ${diaLabel}</span>
  ${p.codigoPromo ? `<span style="background:rgba(139,92,246,.18);color:#a78bfa;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;font-family:monospace;">${p.codigoPromo}</span>` : ""}
  ${p.segundaUnidad ? `<span style="background:rgba(16,185,129,.12);color:#10b981;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;">50% 2da ud.</span>` : ""}
+ ${p.esCombo ? `<span style="background:rgba(59,130,246,.15);color:#60a5fa;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;">COMBO — Inicio</span>` : ""}
  ${p.metodoPago && p.metodoPago !== "todos" ? `<span style="background:rgba(59,130,246,.12);color:#60a5fa;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;">${p.metodoPago==="efectivo"?" Efectivo":p.metodoPago==="mp"?" MP":p.metodoPago}</span>` : ""}
  ${(p.fechaDesde || p.fechaHasta) ? `<span style="background:rgba(245,158,11,.1);color:var(--primary);font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;"> ${p.fechaDesde||"?"} → ${p.fechaHasta||"?"}</span>` : ""}
  ${vigencia}</div></div><div style="display:flex;flex-direction:column;align-items:center;gap:4px;"><label class="adm-toggle" title="${activo ? 'Desactivar' : 'Activar'}"><input type="checkbox" ${activo ? 'checked' : ''} onchange="admTogglePromo('${p.id}')"><span class="adm-toggle-slider"></span></label><span style="font-size:9px;color:${activo ? '#10b981' : '#ef4444'};font-weight:700;">${activo ? 'ON' : 'OFF'}</span></div></div><div style="display:flex;gap:0;border-top:1px solid var(--border);"><button onclick="admAbrirFormPromo('${p.id}')"
@@ -5822,6 +5876,7 @@ window.admAbrirFormPromo = (id) => {
  const _pfCod=document.getElementById('pf-codigo'); if(_pfCod)_pfCod.value=p.codigoPromo||'';
  const _pfMet=document.getElementById('pf-metodo-pago'); if(_pfMet)_pfMet.value=p.metodoPago||'todos';
  const _pfSeg=document.getElementById('pf-segunda-unidad'); if(_pfSeg){_pfSeg.checked=p.segundaUnidad===true;const sp=_pfSeg.nextElementSibling,dp=sp&&sp.nextElementSibling;if(sp)sp.style.background=_pfSeg.checked?'#10b981':'#333';if(dp)dp.style.left=_pfSeg.checked?'22px':'2px';}
+ const _pfCombo=document.getElementById('pf-es-combo'); if(_pfCombo){_pfCombo.checked=p.esCombo===true;const sc=_pfCombo.nextElementSibling,dc=sc&&sc.nextElementSibling;if(sc)sc.style.background=_pfCombo.checked?'#60a5fa':'#333';if(dc)dc.style.left=_pfCombo.checked?'22px':'2px';}
  const _pfDesde=document.getElementById('pf-fecha-desde'); if(_pfDesde)_pfDesde.value=p.fechaDesde||'';
  const _pfHasta=document.getElementById('pf-fecha-hasta'); if(_pfHasta)_pfHasta.value=p.fechaHasta||'';
  admToggleRangoFechas();
@@ -5835,6 +5890,7 @@ window.admAbrirFormPromo = (id) => {
  admToggleRangoFechas();
  const _pfMet=document.getElementById('pf-metodo-pago'); if(_pfMet)_pfMet.value='todos';
  const _pfSeg=document.getElementById('pf-segunda-unidad'); if(_pfSeg){_pfSeg.checked=false;const sp=_pfSeg.nextElementSibling,dp=sp&&sp.nextElementSibling;if(sp)sp.style.background='#333';if(dp)dp.style.left='2px';}
+ const _pfCombo=document.getElementById('pf-es-combo'); if(_pfCombo){_pfCombo.checked=false;const sc=_pfCombo.nextElementSibling,dc=sc&&sc.nextElementSibling;if(sc)sc.style.background='#333';if(dc)dc.style.left='2px';}
  const prev = document.getElementById('pf-img-preview');
  if (prev) prev.style.display = 'none';
  }
@@ -5860,6 +5916,7 @@ window.admGuardarFormPromo = async () => {
  const codigoPromo   = (document.getElementById('pf-codigo')?.value || '').trim().toUpperCase();
  const metodoPago    = document.getElementById('pf-metodo-pago')?.value || 'todos';
  const segundaUnidad = document.getElementById('pf-segunda-unidad')?.checked === true;
+ const esCombo       = document.getElementById('pf-es-combo')?.checked === true;
  const fechaDesde    = document.getElementById('pf-fecha-desde')?.value || null;
  const fechaHasta    = document.getElementById('pf-fecha-hasta')?.value || null;
  const errEl = document.getElementById('pf-error');
@@ -5894,6 +5951,7 @@ window.admGuardarFormPromo = async () => {
  codigoPromo: codigoPromo || null,
  metodoPago: metodoPago || 'todos',
  segundaUnidad: segundaUnidad || false,
+ esCombo: esCombo || false,
  fechaDesde: fechaDesde || null,
  fechaHasta: fechaHasta || null,
  ...(isNueva ? { _custom: true } : {})
