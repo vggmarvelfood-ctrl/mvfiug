@@ -2667,10 +2667,15 @@ window._promoComboAgregarAlCarrito = function(promoId, burgerId, cantidad, reque
  }
 
  section.style.display = 'block';
- container.innerHTML = `<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">${combos.map(item => {
+ container.className = 'menu-grid';
+ container.innerHTML = combos.map(item => {
  const _safeJson = JSON.stringify(item).replace(/&/g, '&amp;').replace(/'/g, '&#39;');
- return `<div class="promo-card"><div class="badge-promo">PROMO</div>${(item.img && item.img !== 'undefined') ? `<img src="${item.img}" width="400" height="140" style="width:100%; height:140px; object-fit:cover; border-radius:10px; margin-bottom:10px;" loading="lazy" decoding="async" onerror="this.style.display='none'">` : ''}<h3 style="font-size:15px; font-weight:800;">${item.n}</h3><p style="font-size:12px; color:var(--text-light); margin: 5px 0;">${item.d}</p><div class="price-container"><span class="old-price">$${item.pOriginal.toLocaleString()}</span><span class="new-price">$${item.p.toLocaleString()}</span></div><button class="btn-action" onclick='openModal(${_safeJson})' style="margin-top:10px; padding:9px; font-size:12px;">AGREGAR PROMO</button></div>`;
- }).join('')}</div>`;
+ const _imgSrc = (item.img && item.img !== 'undefined') ? item.img : '';
+ const _imgHtml = _imgSrc
+   ? `<img class="p-img" src="${_imgSrc}" alt="${item.n}" width="200" height="200" loading="lazy" decoding="async" onerror="this.style.display='none'">`
+   : `<div class="p-img p-img--placeholder" aria-hidden="true"></div>`;
+ return `<div class="card-p" onclick='openModal(${_safeJson})'><div class="agotado-badge" style="background:var(--primary);">PROMO</div><div class="p-img-wrapper">${_imgHtml}</div><div class="p-txt"><div><h3>${item.n}</h3><p>${item.d}</p></div><div class="p-action-row"><div><div style="font-size:11px;color:var(--text-light);text-decoration:line-through;">$${item.pOriginal.toLocaleString()}</div><span class="p-price">$${item.p.toLocaleString()}</span></div><button class="add-btn">+</button></div></div></div>`;
+ }).join('');
  }
 
  // Render automático del tab Locales: botones por sucursal con precios y botón ver mapa
