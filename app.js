@@ -2674,7 +2674,7 @@ window._promoComboAgregarAlCarrito = function(promoId, burgerId, cantidad, reque
  const _imgHtml = _imgSrc
    ? `<img class="p-img" src="${_imgSrc}" alt="${item.n}" width="200" height="200" loading="lazy" decoding="async" onerror="this.style.display='none'">`
    : `<div class="p-img p-img--placeholder" aria-hidden="true"></div>`;
- return `<div class="card-p" onclick='openModal(${_safeJson})'><div class="agotado-badge" style="background:var(--primary);">PROMO</div><div class="p-img-wrapper">${_imgHtml}</div><div class="p-txt"><div><h3>${item.n}</h3><p>${item.d}</p></div><div class="p-action-row"><div><div style="font-size:11px;color:var(--text-light);text-decoration:line-through;">$${item.pOriginal.toLocaleString()}</div><span class="p-price">$${item.p.toLocaleString()}</span></div><button class="add-btn">+</button></div></div></div>`;
+ return `<div class="card-p" onclick='openModal(${_safeJson})'><div class="p-img-wrapper">${_imgHtml}</div><div class="p-txt"><div><h3>${item.n}</h3><p>${item.d}</p></div><div class="p-action-row"><div><div style="font-size:11px;color:var(--text-light);text-decoration:line-through;">$${item.pOriginal.toLocaleString()}</div><span class="p-price">$${item.p.toLocaleString()}</span></div><button class="add-btn">+</button></div></div></div>`;
  }).join('');
  }
 
