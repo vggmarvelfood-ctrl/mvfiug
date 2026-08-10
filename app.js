@@ -784,6 +784,13 @@ window.openModal = (p) => {
  if (categoriaProd.includes("hamburguesas")) {
  // Extras para Hamburguesas
  extrasParaMostrar = EXTRAS_GLOBALES.filter(e => e.tipo === "burger");
+ // Black Panther, Capitán América, Vision y Wanda (incluidas sus
+ // versiones Veggie) vienen con muzzarella de base, no con feta — no
+ // es posible agregarles "Extra Cheddar feta".
+ const _sinCheddarFeta = ["black panther", "capitán américa", "capitan america", "vision", "visión", "wanda"];
+ if (_sinCheddarFeta.some(n => nombreProd.includes(n))) {
+ extrasParaMostrar = extrasParaMostrar.filter(e => e.id !== "701");
+ }
  } else if (nombreProd.includes("papas") || categoriaProd.includes("papas")) {
  // Extras para Papas
  extrasParaMostrar = EXTRAS_GLOBALES.filter(e => e.tipo === "papas");
@@ -2619,8 +2626,8 @@ window._promoComboAgregarAlCarrito = function(promoId, burgerId, cantidad, reque
  ...burgerDelDia,
  id: `PROMO-DIA-NORMAL-${hoy}`,
  n: `PROMO ${burgerDelDia.n} + Papas chicas`,
- pOriginal: 16300,
- p: 15800,
+ pOriginal: 15300,
+ p: 14300,
  badge: "OPCIÓN CARNE",
  ings: [] // CORRECCIÓN
  },
@@ -2628,8 +2635,8 @@ window._promoComboAgregarAlCarrito = function(promoId, burgerId, cantidad, reque
  ...burgerDelDia,
  id: `PROMO-DIA-VEGGIE-${hoy}`,
  n: `PROMO ${burgerDelDia.n} VEGGIE + Papas chicas`,
- pOriginal: 15000,
- p: 13000,
+ pOriginal: 13000,
+ p: 11600,
  badge: "OPCIÓN VEGGIE",
  ings: [] // CORRECCIÓN
  }
