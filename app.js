@@ -2687,6 +2687,75 @@ window._promoComboAgregarAlCarrito = function(promoId, burgerId, cantidad, reque
  }).join('');
  }
 
+ // ═══════════════════════════════════════════════════════════════════
+ //  "Lo más pedido" — anuncio visual de tendencia en Inicio, mismo
+ //  estilo que "Otros también pidieron" del carrito (upsell-card),
+ //  pero curado a mano desde el admin: Configuración → Productos
+ //  Tendencia. No usa datos reales de ventas — leerlos de forma segura
+ //  desde el navegador del cliente no es posible, así que el admin
+ //  elige qué mostrar según lo que ve pedirse más seguido.
+ //  cfg esperado: { activo:bool, titulo, subtitulo, items:[{id,badge}] }
+ // ═══════════════════════════════════════════════════════════════════
+ function _buscarProductoMenuPorId(id) {
+ if (typeof MENU === 'undefined') return null;
+ for (const cat of MENU) {
+ for (const item of cat.items) {
+ if (item.id === id) return { ...item, cat: cat.cat };
+ }
+ }
+ return null;
+ }
+
+ window.renderTendenciasHome = function(tendencias) {
+ const section = document.getElementById('section-top-prods');
+ const lista = document.getElementById('top-prods-lista');
+ if (!section || !lista) return;
+
+ const cfg = tendencias || {};
+ const items = Array.isArray(cfg.items) ? cfg.items : [];
+
+ if (!cfg.activo || !items.length) {
+ section.style.display = 'none';
+ lista.innerHTML = '';
+ return;
+ }
+
+ const subEl = document.getElementById('top-prods-subtitulo');
+ const titEl = document.getElementById('top-prods-titulo');
+ if (subEl) subEl.textContent = (cfg.subtitulo && cfg.subtitulo.trim()) || 'Basado en pedidos reales';
+ if (titEl) titEl.textContent = (cfg.titulo && cfg.titulo.trim()) || 'Lo más pedido';
+
+ const cardsHtml = items.map(entry => {
+ const prod = _buscarProductoMenuPorId(Number(entry.id));
+ if (!prod) return '';
+ // No promocionar algo que el admin marcó sin stock
+ if (menuOverrides[prod.id] && menuOverrides[prod.id].agotado === true) return '';
+ const precio = (menuOverrides[prod.id] && menuOverrides[prod.id].precio) ? menuOverrides[prod.id].precio : prod.p;
+ const badge = (entry.badge && entry.badge.trim()) || ' Más pedido';
+ const _safeJson = JSON.stringify({ ...prod, p: precio }).replace(/&/g, '&amp;').replace(/'/g, '&#39;');
+ const imgHtml = (prod.img && prod.img !== 'undefined')
+ ? `<img src="${prod.img}" alt="${prod.n}" loading="lazy" decoding="async">`
+ : `<div style="width:100%;height:88px;background:var(--bg);"></div>`;
+ return `<div class="top-prod-card" onclick='openModal(${_safeJson})'>
+ <span class="top-prod-badge">${badge}</span>
+ ${imgHtml}
+ <div class="top-prod-body">
+ <div class="top-prod-name">${prod.n}</div>
+ <div class="top-prod-price">$${precio.toLocaleString('es-AR')}</div>
+ </div>
+ </div>`;
+ }).join('');
+
+ if (!cardsHtml.trim()) {
+ section.style.display = 'none';
+ lista.innerHTML = '';
+ return;
+ }
+
+ lista.innerHTML = cardsHtml;
+ section.style.display = 'block';
+ };
+
  // Render automático del tab Locales: botones por sucursal con precios y botón ver mapa
  function renderZonasCards() {
  const container = document.getElementById('zonas-cards-container');
