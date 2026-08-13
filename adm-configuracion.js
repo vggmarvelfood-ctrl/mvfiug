@@ -66,6 +66,8 @@ window.admCargarConfiguracion = async function () {
    { inicio:true, promos:true, pedidos:true, cupones:true, opiniones:true, locales:true },
    (cfg.secciones || {})
  );
+ // Guardar tendencias para que _tendenciasRender() las tenga disponibles
+ _tendenciasCache = cfg.tendencias || {};
  } catch (e) {
  cont.innerHTML = `<div style="padding:20px;color:#ef4444;font-size:13px;">Error al cargar: ${e.message}</div>`;
  return;
@@ -415,6 +417,37 @@ window.admCargarConfiguracion = async function () {
    <div id="cfg-secciones-lista" style="display:flex;flex-direction:column;gap:8px;"></div>
  </div>
 
+ <!-- SECCIÓN: PRODUCTOS TENDENCIA ("Lo más pedido" en Inicio) -->
+ <div style="background:var(--surface);border:1px solid rgba(245,158,11,.3);border-radius:14px;padding:16px;margin-bottom:20px;">
+   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+     <div style="font-size:12px;color:var(--primary);font-weight:800;text-transform:uppercase;letter-spacing:.5px;"> Productos Tendencia (Inicio)</div>
+     ${toggle('cfg-tend-activo', _tendenciasCache.activo === true, "admTendToggleActivo(this.checked)")}
+   </div>
+   <p style="font-size:12px;color:#6b7280;margin:0 0 14px;line-height:1.5;">
+     Anuncio visual arriba del menú, mismo estilo que "Otros también pidieron" del carrito.
+     No lee ventas reales (por seguridad esos datos no se exponen al navegador) — elegís vos
+     hasta 6 productos según lo que veas pedirse más seguido, con una etiqueta tipo
+     "🔥 Más pedido" o "⭐ Recomendado" para cada uno.
+   </p>
+   <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">
+     <div>
+       <div style="font-size:10px;color:#9ca3af;margin-bottom:4px;">TÍTULO</div>
+       <input id="cfg-tend-titulo" type="text" maxlength="40" placeholder="Lo más pedido"
+         value="${_tendenciasCache.titulo || ''}"
+         style="width:100%;padding:9px;background:var(--bg);border:1px solid var(--border);
+         border-radius:8px;color:var(--white);font-size:13px;outline:none;box-sizing:border-box;">
+     </div>
+     <div>
+       <div style="font-size:10px;color:#9ca3af;margin-bottom:4px;">SUBTÍTULO</div>
+       <input id="cfg-tend-subtitulo" type="text" maxlength="40" placeholder="Basado en pedidos reales"
+         value="${_tendenciasCache.subtitulo || ''}"
+         style="width:100%;padding:9px;background:var(--bg);border:1px solid var(--border);
+         border-radius:8px;color:var(--white);font-size:13px;outline:none;box-sizing:border-box;">
+     </div>
+   </div>
+   <div id="cfg-tend-slots" style="display:flex;flex-direction:column;gap:8px;"></div>
+ </div>
+
  <!-- Botón guardar global -->
  <button onclick="admGuardarConfiguracion()"
  style="width:100%;padding:14px;background:var(--primary);color:#000;border:none;
@@ -429,6 +462,9 @@ window.admCargarConfiguracion = async function () {
 
   // Render secciones dentro del form de configuración
   _seccionesRender();
+
+  // Render slots de productos tendencia
+  _tendenciasRender();
 };
 
 
@@ -597,13 +633,17 @@ window.admGuardarConfiguracion = async function () {
     // Recolectar secciones visibles
     const secciones = _seccionesGetValues();
 
+    // Recolectar productos tendencia ("Lo más pedido")
+    const tendencias = _tendenciasGetValues();
+
     await window.db.collection('config_menu').doc(CFG_DOC).set(
-      { telefonos, horarios, general, secciones },
+      { telefonos, horarios, general, secciones, tendencias },
       { merge: true }
     );
 
     // Aplicar visibilidad en vivo
     aplicarVisibilidadSecciones(secciones);
+    _tendenciasCache = tendencias;
 
  // Aplicar teléfonos en SUC_MAP en memoria (sin recargar)
  if (window.SUC_MAP) {
@@ -675,6 +715,11 @@ window.cargarConfigGeneral = async function () {
 
     // Aplicar visibilidad de secciones al cargar el storefront
     aplicarVisibilidadSecciones(cfg.secciones || {});
+
+    // Pintar el banner de tendencia ("Lo más pedido") en Inicio
+    if (typeof window.renderTendenciasHome === 'function') {
+      window.renderTendenciasHome(cfg.tendencias || {});
+    }
 
  } catch (e) {
  console.warn('[Config] Error cargando config general:', e.message);
@@ -859,6 +904,96 @@ window.admSeccionToggle = function(key, checked) {
   if (thumb) thumb.style.left = checked ? '22px' : '2px';
   if (lbl)   { lbl.textContent = checked ? 'VISIBLE' : 'OCULTO'; lbl.style.color = checked ? '#10b981' : '#6b7280'; }
 };
+
+// ============================================================
+//  PRODUCTOS TENDENCIA — banner "Lo más pedido" en Inicio
+//  Curado a mano: el admin elige hasta 6 productos del menú y una
+//  etiqueta para cada uno. Se guarda en config_menu/config_general
+//  → tendencias: { activo, titulo, subtitulo, items:[{id,badge}] }
+// ============================================================
+
+let _tendenciasCache = {};
+const _TEND_MAX_SLOTS = 6;
+const _TEND_BADGES_SUGERIDAS = [' Más pedido', ' Recomendado', ' Favorito de la casa', ' Elegido por vos'];
+
+// Construye las <option> agrupadas por categoría, a partir de MENU (global de app.js)
+function _tendOpcionesMenu(seleccionado) {
+  if (typeof MENU === 'undefined') return '<option value="">— Menú no disponible —</option>';
+  let html = '<option value="">— No mostrar —</option>';
+  MENU.forEach(cat => {
+    html += `<optgroup label="${cat.cat}">`;
+    cat.items.forEach(item => {
+      const sel = String(item.id) === String(seleccionado) ? 'selected' : '';
+      html += `<option value="${item.id}" ${sel}>${item.n} — $${item.p.toLocaleString('es-AR')}</option>`;
+    });
+    html += '</optgroup>';
+  });
+  return html;
+}
+
+function _tendenciasRender() {
+  const cont = document.getElementById('cfg-tend-slots');
+  if (!cont) return;
+  const items = Array.isArray(_tendenciasCache.items) ? _tendenciasCache.items : [];
+
+  let html = '';
+  for (let i = 0; i < _TEND_MAX_SLOTS; i++) {
+    const entry = items[i] || {};
+    html += `
+      <div style="display:flex;gap:8px;align-items:center;background:var(--bg);
+        border:1px solid var(--border);border-radius:10px;padding:8px 10px;">
+        <span style="font-size:11px;color:#6b7280;font-weight:800;width:16px;flex-shrink:0;text-align:center;">${i + 1}</span>
+        <select id="cfg-tend-id-${i}" onchange="admTendPreview(${i})"
+          style="flex:1.4;min-width:0;padding:8px;background:var(--surface);border:1px solid var(--border);
+          border-radius:8px;color:var(--white);font-size:12px;outline:none;">
+          ${_tendOpcionesMenu(entry.id)}
+        </select>
+        <input id="cfg-tend-badge-${i}" type="text" maxlength="24"
+          placeholder="🔥 Más pedido" value="${entry.badge || ''}"
+          style="flex:1;min-width:0;padding:8px;background:var(--surface);border:1px solid var(--border);
+          border-radius:8px;color:var(--white);font-size:12px;outline:none;">
+      </div>`;
+  }
+  cont.innerHTML = html;
+}
+
+// Sugerencia rápida de badge al elegir un producto nuevo en un slot vacío
+window.admTendPreview = function (i) {
+  const sel = document.getElementById(`cfg-tend-id-${i}`);
+  const badge = document.getElementById(`cfg-tend-badge-${i}`);
+  if (!sel || !badge) return;
+  if (sel.value && !badge.value.trim()) {
+    badge.value = _TEND_BADGES_SUGERIDAS[i % _TEND_BADGES_SUGERIDAS.length];
+  }
+};
+
+window.admTendToggleActivo = function (activo) {
+  const chk = document.getElementById('cfg-tend-activo');
+  if (chk) {
+    const span = chk.nextElementSibling;
+    const dot = span && span.nextElementSibling;
+    if (span) span.style.background = activo ? '#10b981' : '#333';
+    if (dot) dot.style.left = activo ? '22px' : '2px';
+  }
+};
+
+// Recolectar valores actuales de los 6 slots, descartando los vacíos
+function _tendenciasGetValues() {
+  const items = [];
+  for (let i = 0; i < _TEND_MAX_SLOTS; i++) {
+    const sel = document.getElementById(`cfg-tend-id-${i}`);
+    const badge = document.getElementById(`cfg-tend-badge-${i}`);
+    const id = sel ? sel.value : '';
+    if (!id) continue;
+    items.push({ id: Number(id), badge: (badge && badge.value.trim()) || '' });
+  }
+  return {
+    activo: document.getElementById('cfg-tend-activo')?.checked === true,
+    titulo: document.getElementById('cfg-tend-titulo')?.value.trim() || '',
+    subtitulo: document.getElementById('cfg-tend-subtitulo')?.value.trim() || '',
+    items,
+  };
+}
 
 // Aplicar visibilidad en el storefront (nav + resumen opiniones)
 function aplicarVisibilidadSecciones(secciones) {
