@@ -2722,7 +2722,7 @@ window._promoComboAgregarAlCarrito = function(promoId, burgerId, cantidad, reque
 
  const subEl = document.getElementById('top-prods-subtitulo');
  const titEl = document.getElementById('top-prods-titulo');
- if (subEl) subEl.textContent = (cfg.subtitulo && cfg.subtitulo.trim()) || 'Basado en pedidos reales';
+ if (subEl) subEl.textContent = (cfg.subtitulo && cfg.subtitulo.trim()) || 'Porque nuestros clientes combinaron';
  if (titEl) titEl.textContent = (cfg.titulo && cfg.titulo.trim()) || 'Lo más pedido';
 
  const cardsHtml = items.map(entry => {
