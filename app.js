@@ -1159,27 +1159,18 @@ function renderCartItems() {
  if (montoCombo > 0) totalFinal -= montoCombo;
  }
 
- // Si el carrito ya arma la combinación de una promo "solo efectivo" (o
- // trae una promo catálogo con medio de pago restringido), bloquear el
- // selector en ese método — así el cliente no puede cambiarlo sin darse
- // cuenta de que pierde el descuento (o que el pedido sale con un medio
- // de pago que no corresponde).
+ // Si el carrito arma la combinación de una promo "solo efectivo" (o
+ // trae una promo catálogo con medio de pago restringido), ya NO se
+ // bloquea el selector — el cliente puede elegir Tarjeta/MP libremente.
+ // Solo se muestra un aviso informativo: el descuento se aplica o no
+ // según el método que tenga seleccionado en ese momento (lo resuelve
+ // calcularDescuentoComboAuto()/_promoComboMetodoValido() más arriba).
  const restriccionPago = cuponAplicado ? null : _detectarRestriccionMetodoPago(carrito);
- const selMetodo = document.getElementById('p-metodo');
  const avisoMetodo = document.getElementById('p-metodo-bloqueado-aviso');
- if (selMetodo) {
- Array.from(selMetodo.options).forEach(opt => {
- opt.disabled = !!restriccionPago && opt.value !== restriccionPago.metodo;
- });
- if (restriccionPago && selMetodo.value !== restriccionPago.metodo) {
- selMetodo.value = restriccionPago.metodo;
- toggleVuelto && toggleVuelto();
- }
- }
  if (avisoMetodo) {
  if (restriccionPago) {
  avisoMetodo.style.display = 'block';
- avisoMetodo.textContent = `"${restriccionPago.nombre}" es solo con ${restriccionPago.metodo} — no acepta Tarjeta ni otro medio de pago. El selector queda bloqueado en ${restriccionPago.metodo} mientras la lleves en el carrito.`;
+ avisoMetodo.textContent = `"${restriccionPago.nombre}" solo tiene descuento pagando con ${restriccionPago.metodo} — con otro medio de pago se cobra el precio normal.`;
  } else {
  avisoMetodo.style.display = 'none';
  }
@@ -1363,16 +1354,10 @@ async function _procesarPedidoImpl() {
  const pago = document.getElementById('p-metodo').value;
  const vuelto = parseFloat(document.getElementById('p-vuelto').value) || 0;
 
- // Respaldo server-side (aunque el selector ya viene bloqueado desde
- // renderCartItems): si el carrito arma la combinación de una promo
- // solo-efectivo, o trae una promo catálogo con medio de pago
- // restringido, no dejar salir el pedido con otro método de pago.
- if (!cuponAplicado) {
- const restriccionPago = _detectarRestriccionMetodoPago(carrito);
- if (restriccionPago && pago !== restriccionPago.metodo) {
- return alert(`"${restriccionPago.nombre}" es solo con ${restriccionPago.metodo}. Elegí ${restriccionPago.metodo} como medio de pago para continuar.`);
- }
- }
+ // Ya no se bloquea el envío del pedido por medio de pago: si el cliente
+ // elige Tarjeta/MP en un carrito que arma la combinación de una promo
+ // "solo efectivo", el pedido sale igual, simplemente sin el descuento
+ // (calcularDescuentoComboAuto de abajo ya lo resuelve solo).
 
  // --- NUEVO: Obtener el horario estimado antes de armar la orden ---
  const horarioEstimadoFinal = obtenerHorarioEstimado(isDelivery);
