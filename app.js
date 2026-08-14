@@ -957,7 +957,14 @@ function calcularDescuentoComboAuto(items, metodoActual) {
     let requeridasDisponibles = 0;
     idsRequeridos.forEach(id => { requeridasDisponibles += (pool[id] || []).length; });
 
-    let unidadesConDescuento = Math.min(preciosDisponibles.length, Math.floor(requeridasDisponibles / proporcion));
+    // requierePar: promos tipo "Segunda al X%" — por cada unidad con
+    // descuento tiene que haber OTRA unidad elegible a precio completo
+    // acompañándola (ej: 1 papas + 1 burger sola NO alcanza; hacen falta
+    // 2 burgers para que 1 vaya al 100% y la otra al X%).
+    const maxPorElegibles = promo.requierePar
+      ? Math.floor(preciosDisponibles.length / 2)
+      : preciosDisponibles.length;
+    let unidadesConDescuento = Math.min(maxPorElegibles, Math.floor(requeridasDisponibles / proporcion));
     if (promo.limiteUnidades > 0) unidadesConDescuento = Math.min(unidadesConDescuento, promo.limiteUnidades);
     if (unidadesConDescuento <= 0) return;
 
@@ -1029,7 +1036,10 @@ function _promoComboEfectivoRequeridoPor(items) {
       if (idsElegibles.includes(item.id)) elegibles += item.cant;
       if (idsRequeridos.includes(item.id)) requeridos += item.cant;
     });
-    if (elegibles > 0 && Math.floor(requeridos / proporcion) > 0) return promo;
+    // Misma regla que calcularDescuentoComboAuto: si la promo requierePar,
+    // hacen falta 2 unidades elegibles por cada unidad descontada.
+    const elegiblesUtiles = promo.requierePar ? Math.floor(elegibles / 2) : elegibles;
+    if (elegiblesUtiles > 0 && Math.floor(requeridos / proporcion) > 0) return promo;
   }
   return null;
 }
@@ -2506,13 +2516,18 @@ window.abrirPromoComboModal = function(promoId) {
 
  document.getElementById('m-info-title').textContent = promo.nombre;
 
+ // Cada hamburguesa tiene su propio stepper de cantidad (arranca en 0) —
+ // así el cliente puede combinar "2 iguales" o "1 y 1" en el mismo agregado.
  const burgersHtml = burgers.map(b => {
  const precio = (menuOverrides[b.id] && menuOverrides[b.id].precio) ? menuOverrides[b.id].precio : b.p;
- return `<label class="custom-check" style="cursor:pointer;">
-   <span>${b.n} <span style="color:#6b7280;font-size:12px;">$${precio.toLocaleString()}</span></span>
-   <input type="radio" name="pcm-burger" value="${b.id}">
-   <div class="check-box"></div>
- </label>`;
+ return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);">
+   <span style="font-size:13px;">${b.n} <span style="color:#6b7280;font-size:12px;">$${precio.toLocaleString()}</span></span>
+   <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
+     <button onclick="_pcmCambiarQtyBurger(${b.id}, -1)" style="width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:transparent;color:var(--white);font-size:15px;cursor:pointer;">-</button>
+     <span id="pcm-qty-${b.id}" style="font-weight:800;min-width:14px;text-align:center;">0</span>
+     <button onclick="_pcmCambiarQtyBurger(${b.id}, 1)" style="width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:transparent;color:var(--white);font-size:15px;cursor:pointer;">+</button>
+   </div>
+ </div>`;
  }).join('');
 
  // Si hay más de un producto configurado como "habilita el descuento"
@@ -2529,16 +2544,9 @@ window.abrirPromoComboModal = function(promoId) {
 
  document.getElementById('m-info-body').innerHTML = `
  <p style="margin-bottom:14px;">${promo.descripcion || ('Llevando el acompañamiento requerido, cada hamburguesa elegida tiene ' + promo.descPct + '% OFF.')}</p>
- <div style="font-size:12px;color:#9ca3af;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Elegí tu hamburguesa</div>
+ ${promo.requierePar ? `<p style="margin:-8px 0 14px;font-size:11px;color:#a78bfa;">⚠️ Necesitás al menos 2 hamburguesas (pueden ser iguales o distintas) para que el descuento se active.</p>` : ''}
+ <div style="font-size:12px;color:#9ca3af;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Elegí tus hamburguesas</div>
  <div id="pcm-burgers-list" style="margin-bottom:16px;">${burgersHtml}</div>
- <div style="display:flex;align-items:center;justify-content:space-between;background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:10px 14px;margin-bottom:16px;">
-   <span style="font-size:13px;font-weight:700;">Cantidad</span>
-   <div style="display:flex;align-items:center;gap:14px;">
-     <button onclick="_pcmCambiarQty(-1)" style="width:32px;height:32px;border-radius:50%;border:1px solid var(--border);background:transparent;color:var(--white);font-size:16px;cursor:pointer;">-</button>
-     <span id="pcm-qty" style="font-weight:800;min-width:16px;text-align:center;">1</span>
-     <button onclick="_pcmCambiarQty(1)" style="width:32px;height:32px;border-radius:50%;border:1px solid var(--border);background:transparent;color:var(--white);font-size:16px;cursor:pointer;">+</button>
-   </div>
- </div>
  ${requeridos.length > 0 ? `
  <div style="font-size:12px;color:#9ca3af;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Elegí el acompañamiento (${proporcion}× por hamburguesa)</div>
  <div id="pcm-requeridos-list" style="margin-bottom:16px;">${requeridosHtml}</div>
@@ -2546,27 +2554,33 @@ window.abrirPromoComboModal = function(promoId) {
  <button class="btn-action" onclick="_pcmConfirmarAgregar('${promoId}')" style="width:100%;padding:12px;">Agregar al carrito</button>
  `;
 
- window._pcmQty = 1;
+ window._pcmQtys = {};
  document.getElementById('m-info').style.display = 'flex';
 };
 
-window._pcmCambiarQty = function(delta) {
- window._pcmQty = Math.max(1, (window._pcmQty || 1) + delta);
- const el = document.getElementById('pcm-qty');
- if (el) el.textContent = window._pcmQty;
+// Stepper individual por hamburguesa (permite "2 iguales" o "1 y 1"
+// tildando cantidades en varias filas a la vez).
+window._pcmCambiarQtyBurger = function(burgerId, delta) {
+ const actual = (window._pcmQtys && window._pcmQtys[burgerId]) || 0;
+ const nueva = Math.max(0, actual + delta);
+ window._pcmQtys = window._pcmQtys || {};
+ window._pcmQtys[burgerId] = nueva;
+ const el = document.getElementById('pcm-qty-' + burgerId);
+ if (el) el.textContent = nueva;
 };
 
 window._pcmConfirmarAgregar = function(promoId) {
  const promo = (window._promosComboAuto || []).find(p => p.id === promoId);
  if (!promo) return;
- const burgerSel = document.querySelector('input[name="pcm-burger"]:checked');
- if (!burgerSel) { alert('Elegí una hamburguesa para continuar.'); return; }
+ const lineas = Object.entries(window._pcmQtys || {})
+ .map(([id, cant]) => ({ id: parseInt(id, 10), cant }))
+ .filter(l => l.cant > 0);
+ if (lineas.length === 0) { alert('Elegí al menos una hamburguesa para continuar.'); return; }
  const requeridoSel = document.querySelector('input[name="pcm-requerido"]:checked');
  if ((promo.productosRequeridos || []).length > 0 && !requeridoSel) { alert('Elegí el acompañamiento para continuar.'); return; }
  _promoComboAgregarAlCarrito(
  promoId,
- parseInt(burgerSel.value, 10),
- window._pcmQty || 1,
+ lineas,
  requeridoSel ? parseInt(requeridoSel.value, 10) : null
  );
 };
@@ -2581,28 +2595,41 @@ function _buscarProductoEnMenu(id) {
  return null;
 }
 
-// Agrega la hamburguesa elegida + la cantidad correspondiente del
-// acompañamiento que el cliente eligió (según la proporción configurada)
-// al carrito. El descuento se aplica solo después, automáticamente, vía
+// Agrega las hamburguesas elegidas (una o varias, iguales o distintas,
+// cada una con su propia cantidad) + el acompañamiento correspondiente
+// (según la proporción configurada, sobre el total de hamburguesas) al
+// carrito. El descuento se aplica solo después, automáticamente, vía
 // calcularDescuentoComboAuto() al renderizar el carrito.
-window._promoComboAgregarAlCarrito = function(promoId, burgerId, cantidad, requeridoId) {
+window._promoComboAgregarAlCarrito = function(promoId, lineasBurgers, requeridoId) {
  const promo = (window._promosComboAuto || []).find(p => p.id === promoId);
  if (!promo) return;
- const burger = _buscarProductoEnMenu(burgerId);
- if (!burger) return;
+ // Compatibilidad con la firma vieja (burgerId, cantidad) por si algo la sigue llamando.
+ if (!Array.isArray(lineasBurgers)) {
+ lineasBurgers = [{ id: lineasBurgers, cant: arguments[2] }];
+ requeridoId = arguments[3];
+ }
 
- cantidad = Math.max(1, parseInt(cantidad, 10) || 1);
  const proporcion = promo.proporcion > 0 ? promo.proporcion : 1;
+ let totalBurgers = 0;
+
+ lineasBurgers.forEach(({ id, cant }) => {
+ const burger = _buscarProductoEnMenu(id);
+ cant = Math.max(1, parseInt(cant, 10) || 1);
+ if (!burger) return;
+ const precioBurger = (menuOverrides[burger.id] && menuOverrides[burger.id].precio) ? menuOverrides[burger.id].precio : burger.p;
+ carrito.push({ ...burger, p: precioBurger, cant, sin: [], con: [], obs: '', totalItem: precioBurger * cant });
+ totalBurgers += cant;
+ });
+
+ if (totalBurgers === 0) return;
+
  // Si no se pasó explícitamente (ej: llamada vieja), usar el primero
  // configurado como fallback.
  const idElegido = requeridoId || (promo.productosRequeridos || [])[0];
  const requerido = idElegido ? _buscarProductoEnMenu(idElegido) : null;
 
- const precioBurger = (menuOverrides[burger.id] && menuOverrides[burger.id].precio) ? menuOverrides[burger.id].precio : burger.p;
- carrito.push({ ...burger, p: precioBurger, cant: cantidad, sin: [], con: [], obs: '', totalItem: precioBurger * cantidad });
-
  if (requerido) {
- const cantRequerida = cantidad * proporcion;
+ const cantRequerida = totalBurgers * proporcion;
  const precioRequerido = (menuOverrides[requerido.id] && menuOverrides[requerido.id].precio) ? menuOverrides[requerido.id].precio : requerido.p;
  carrito.push({ ...requerido, p: precioRequerido, cant: cantRequerida, sin: [], con: [], obs: '', totalItem: precioRequerido * cantRequerida });
  }
@@ -5480,6 +5507,21 @@ function admRenderPromosCombo() {
      <div id="pcf-prod-req-list" style="display:flex;flex-direction:column;gap:5px;max-height:220px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:8px;"></div>
    </div>
 
+   <div style="grid-column:1/-1;background:rgba(59,130,246,.06);border:1px solid rgba(59,130,246,.2);border-radius:8px;padding:10px 12px;margin-top:4px;">
+     <div style="display:flex;align-items:center;justify-content:space-between;">
+       <div>
+         <div style="font-size:12px;font-weight:700;color:#60a5fa;">Requiere pareja (2×1)</div>
+         <div style="font-size:10px;color:#6b7280;margin-top:2px;">Estilo "Segunda al X%": hacen falta 2 hamburguesas elegibles para que 1 tenga el descuento. Si está apagado, cada papas descuenta 1 sola hamburguesa aunque sea la única del pedido.</div>
+       </div>
+       <label style="position:relative;display:inline-block;width:44px;height:24px;cursor:pointer;flex-shrink:0;margin-left:10px;">
+         <input type="checkbox" id="pcf-requiere-par" style="opacity:0;width:0;height:0;"
+           onchange="const s=this.nextElementSibling;const d=s.nextElementSibling;s.style.background=this.checked?'#3b82f6':'#333';d.style.left=this.checked?'22px':'2px';">
+         <span style="position:absolute;inset:0;background:#333;border-radius:12px;transition:.3s;"></span>
+         <span style="position:absolute;top:2px;left:2px;width:20px;height:20px;background:#fff;border-radius:50%;transition:.3s;box-shadow:0 1px 4px rgba(0,0,0,.4);"></span>
+       </label>
+     </div>
+   </div>
+
    <div style="grid-column:1/-1;background:rgba(16,185,129,.06);border:1px solid rgba(16,185,129,.2);border-radius:8px;padding:10px 12px;display:flex;align-items:center;justify-content:space-between;margin-top:4px;">
      <div style="font-size:12px;font-weight:700;color:#10b981;">Promo activa</div>
      <label style="position:relative;display:inline-block;width:44px;height:24px;cursor:pointer;flex-shrink:0;">
@@ -5529,6 +5571,7 @@ function admRenderPromosCombo() {
  <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">
    ${vigencia}
    ${p.soloEfectivo ? '<span style="background:rgba(59,130,246,.12);color:#60a5fa;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;">Solo Efectivo</span>' : ''}
+   ${p.requierePar ? '<span style="background:rgba(139,92,246,.12);color:#a78bfa;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;">Requiere pareja (2×1)</span>' : ''}
    ${p.limiteUnidades > 0 ? `<span style="background:rgba(245,158,11,.12);color:var(--primary);font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;">Límite: ${p.limiteUnidades} ud.</span>` : ''}
  </div>
  <div style="display:flex;gap:8px;">
@@ -5606,6 +5649,7 @@ window.admAbrirFormPromoCombo = function(id) {
  document.getElementById('pcf-aplica-a').value = p?.aplicaA || 'unidad';
  document.getElementById('pcf-limite').value = p?.limiteUnidades || '';
  document.getElementById('pcf-metodo-pago').value = p?.soloEfectivo ? 'efectivo' : 'todos';
+ { const parCb = document.getElementById('pcf-requiere-par'); parCb.checked = !!p?.requierePar; parCb.dispatchEvent(new Event('change')); }
  document.getElementById('pcf-fecha-desde').value = p?.fechaDesde || '';
  document.getElementById('pcf-fecha-hasta').value = p?.fechaHasta || '';
 
@@ -5638,6 +5682,7 @@ window.admGuardarFormPromoCombo = async function() {
  const aplicaA = document.getElementById('pcf-aplica-a').value;
  const limiteUnidades = parseInt(document.getElementById('pcf-limite').value, 10) || 0;
  const soloEfectivo = document.getElementById('pcf-metodo-pago').value === 'efectivo';
+ const requierePar = document.getElementById('pcf-requiere-par').checked;
  const fechaDesde = document.getElementById('pcf-fecha-desde').value || null;
  const fechaHasta = document.getElementById('pcf-fecha-hasta').value || null;
  const activo = document.getElementById('pcf-activo').checked;
@@ -5652,7 +5697,7 @@ window.admGuardarFormPromoCombo = async function() {
 
  const datos = {
  nombre, descripcion, img, descPct, proporcion, aplicaA, limiteUnidades,
- soloEfectivo, fechaDesde, fechaHasta, activo, productosElegibles, productosRequeridos
+ soloEfectivo, requierePar, fechaDesde, fechaHasta, activo, productosElegibles, productosRequeridos
  };
 
  try {
