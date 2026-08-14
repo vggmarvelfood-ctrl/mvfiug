@@ -287,6 +287,7 @@ const SUC_MAP = {
  };
 
 let menuOverrides = {}; // precios/disponibilidad dinámicos desde Firebase
+let marvelDelDiaOverrides = {}; // precios de "Marvel del día" por día de semana (0-6), desde Firebase
 
 // ZONA_INFO_UI: mapa de sucursal → label y dirección para mostrar en UI
 const ZONA_INFO_UI = {
@@ -2638,13 +2639,19 @@ window._promoComboAgregarAlCarrito = function(promoId, lineasBurgers, requeridoI
  const hoy = new Date().getDay();
  const burgerDelDia = CALENDARIO_MARVEL[hoy];
 
+ // Precios por día editables desde el admin (Menú → Marvel del Día).
+ // Si no hay override guardado todavía, cae en los valores de siempre.
+ const ov = marvelDelDiaOverrides[hoy] || {};
+ const precioNormal = ov.normal || { pOriginal: 15300, p: 14300 };
+ const precioVeggie = ov.veggie || { pOriginal: 13000, p: 11600 };
+
  const opciones = [
  {
  ...burgerDelDia,
  id: `PROMO-DIA-NORMAL-${hoy}`,
  n: `PROMO ${burgerDelDia.n} + Papas chicas`,
- pOriginal: 15300,
- p: 14300,
+ pOriginal: precioNormal.pOriginal,
+ p: precioNormal.p,
  badge: "OPCIÓN CARNE",
  ings: [] // CORRECCIÓN
  },
@@ -2652,8 +2659,8 @@ window._promoComboAgregarAlCarrito = function(promoId, lineasBurgers, requeridoI
  ...burgerDelDia,
  id: `PROMO-DIA-VEGGIE-${hoy}`,
  n: `PROMO ${burgerDelDia.n} VEGGIE + Papas chicas`,
- pOriginal: 13000,
- p: 11600,
+ pOriginal: precioVeggie.pOriginal,
+ p: precioVeggie.p,
  badge: "OPCIÓN VEGGIE",
  ings: [] // CORRECCIÓN
  }
@@ -2931,6 +2938,7 @@ window.obtenerHorarioEstimado = (esDelivery) => {
 let _menuOverridesListenerActivo = false; // guard anti-doble-suscripción
 let _promosOverrideListenerActivo = false; // guard anti-doble-suscripción (promos)
 let _promoComboAutoListenerActivo = false; // guard anti-doble-suscripción (promo combo automática)
+let _marvelDelDiaListenerActivo = false; // guard anti-doble-suscripción (precios Marvel del día)
 
 // ── Helper: aplica overrides de promos al array PROMOS_DATA ──────────────
 // Reconstruye PROMOS_DATA desde cero (PROMOS_DATA_BASE + overrides) cada vez
@@ -3072,6 +3080,25 @@ async function cargarMenuOverrides() {
       _promoComboAutoListenerActivo = true;
     } catch (e) {
       console.warn('[MenuOverrides] No se pudo registrar listener de promos_combo:', e.message);
+    }
+  }
+
+  // ── 2c. onSnapshot de precios de "Marvel del día" (por día de semana) ──
+  if (!_marvelDelDiaListenerActivo) {
+    try {
+      db.collection('config_menu').doc('marvel_del_dia')
+        .onSnapshot(
+          snap => {
+            marvelDelDiaOverrides = snap.exists ? snap.data() : {};
+            if (typeof renderCenaHoy === 'function') renderCenaHoy();
+          },
+          err => {
+            console.warn('[MenuOverrides] onSnapshot error (marvel_del_dia):', err.code || err.message);
+          }
+        );
+      _marvelDelDiaListenerActivo = true;
+    } catch (e) {
+      console.warn('[MenuOverrides] No se pudo registrar listener de marvel_del_dia:', e.message);
     }
   }
 
@@ -5186,6 +5213,7 @@ function admSwitchTab(tab, btn) {
  // Cargar datos de cada tab
  if (tab === 'dashboard') setTimeout(admCargarDashboard, 50);
  if (tab === 'menu') setTimeout(admCargarMenuGestion, 50);
+ if (tab === 'menu') setTimeout(admCargarMarvelDelDia, 50);
  if (tab === 'resenas') setTimeout(admCargarResenas, 50);
  if (tab === 'promos') { setTimeout(admCargarPromos, 50); setTimeout(admCargarPromoCombo, 50); }
  if (tab === 'cupones') setTimeout(admCargarCupones, 50);
@@ -6429,6 +6457,71 @@ window.admGuardarPrecio = async (id) => {
  inp.style.borderColor = '#10b981';
  setTimeout(() => { inp.style.borderColor = ''; }, 1500);
  } catch(e) { alert("Error: "+e.message); }
+};
+
+// ── MARVEL DEL DÍA — precios editables por día de semana ─────────────────
+// Antes vivían hardcodeados en renderCenaHoy() (app.js) y había que tocar
+// código + redeployar cada vez que cambiaban. Ahora se guardan en Firestore
+// (config_menu/marvel_del_dia) y se listan acá, uno por día, con Normal y
+// Veggie por separado.
+const _DIAS_SEMANA = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+
+async function admCargarMarvelDelDia() {
+ const lista = document.getElementById('adm-marvel-dia-lista');
+ if (!lista) return;
+ let ov = {};
+ try { const s = await db.collection('config_menu').doc('marvel_del_dia').get(); if (s.exists) ov = s.data(); } catch(e) {}
+ lista.innerHTML = '';
+ for (let dia = 0; dia <= 6; dia++) {
+ const burger = (typeof CALENDARIO_MARVEL !== 'undefined' && CALENDARIO_MARVEL[dia]) ? CALENDARIO_MARVEL[dia] : { n: '—' };
+ const o = ov[dia] || {};
+ const normal = o.normal || { pOriginal: 15300, p: 14300 };
+ const veggie = o.veggie || { pOriginal: 13000, p: 11600 };
+ const row = document.createElement('div');
+ row.style.cssText = 'background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px;';
+ row.innerHTML = `
+ <div style="font-size:12px;font-weight:800;color:var(--white);margin-bottom:10px;">${_DIAS_SEMANA[dia]} — ${burger.n}</div>
+ <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+   <div>
+     <div style="font-size:10px;color:#9ca3af;font-weight:700;margin-bottom:4px;">OPCIÓN CARNE — Precio antes ($)</div>
+     <input type="number" id="mdd-${dia}-normal-original" value="${normal.pOriginal}" style="width:100%;padding:8px;background:var(--bg);border:1px solid var(--border);border-radius:7px;color:var(--white);font-size:12px;outline:none;box-sizing:border-box;margin-bottom:6px;">
+     <div style="font-size:10px;color:#9ca3af;font-weight:700;margin-bottom:4px;">OPCIÓN CARNE — Precio promo ($)</div>
+     <input type="number" id="mdd-${dia}-normal-promo" value="${normal.p}" style="width:100%;padding:8px;background:var(--bg);border:1px solid var(--border);border-radius:7px;color:var(--white);font-size:12px;outline:none;box-sizing:border-box;">
+   </div>
+   <div>
+     <div style="font-size:10px;color:#9ca3af;font-weight:700;margin-bottom:4px;">OPCIÓN VEGGIE — Precio antes ($)</div>
+     <input type="number" id="mdd-${dia}-veggie-original" value="${veggie.pOriginal}" style="width:100%;padding:8px;background:var(--bg);border:1px solid var(--border);border-radius:7px;color:var(--white);font-size:12px;outline:none;box-sizing:border-box;margin-bottom:6px;">
+     <div style="font-size:10px;color:#9ca3af;font-weight:700;margin-bottom:4px;">OPCIÓN VEGGIE — Precio promo ($)</div>
+     <input type="number" id="mdd-${dia}-veggie-promo" value="${veggie.p}" style="width:100%;padding:8px;background:var(--bg);border:1px solid var(--border);border-radius:7px;color:var(--white);font-size:12px;outline:none;box-sizing:border-box;">
+   </div>
+ </div>
+ <button onclick="admGuardarMarvelDelDia(${dia})" style="width:100%;margin-top:10px;padding:9px;background:rgba(245,158,11,.15);border:1px solid var(--primary);color:var(--primary);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">Guardar ${_DIAS_SEMANA[dia]}</button>
+ `;
+ lista.appendChild(row);
+ }
+}
+
+window.admGuardarMarvelDelDia = async (dia) => {
+ const gv = (id) => parseInt(document.getElementById(id)?.value, 10) || 0;
+ const normalOriginal = gv(`mdd-${dia}-normal-original`);
+ const normalPromo = gv(`mdd-${dia}-normal-promo`);
+ const veggieOriginal = gv(`mdd-${dia}-veggie-original`);
+ const veggiePromo = gv(`mdd-${dia}-veggie-promo`);
+ if (!normalOriginal || !normalPromo || !veggieOriginal || !veggiePromo) {
+ return alert('Completá los 4 precios (deben ser mayores a 0).');
+ }
+ const upd = {};
+ upd[dia] = {
+ normal: { pOriginal: normalOriginal, p: normalPromo },
+ veggie: { pOriginal: veggieOriginal, p: veggiePromo }
+ };
+ try {
+ await db.collection('config_menu').doc('marvel_del_dia').set(upd, { merge: true });
+ const btn = document.querySelector(`#adm-marvel-dia-lista button[onclick="admGuardarMarvelDelDia(${dia})"]`);
+ if (btn) { const t = btn.textContent; btn.textContent = '✓ Guardado'; btn.style.color = '#10b981'; btn.style.borderColor = '#10b981'; setTimeout(() => { btn.textContent = t; btn.style.color = ''; btn.style.borderColor = ''; }, 1500); }
+ } catch (e) {
+ alert('Error: ' + e.message);
+ }
 };
 
 let _admResTabActual = 'pedidos';
