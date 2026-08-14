@@ -2548,7 +2548,7 @@ window.abrirPromoComboModal = function(promoId) {
  <div style="font-size:12px;color:#9ca3af;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Elegí tus hamburguesas</div>
  <div id="pcm-burgers-list" style="margin-bottom:16px;">${burgersHtml}</div>
  ${requeridos.length > 0 ? `
- <div style="font-size:12px;color:#9ca3af;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Elegí el acompañamiento (${proporcion}× por hamburguesa)</div>
+ <div style="font-size:12px;color:#9ca3af;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Elegí el acompañamiento (${proporcion}× por ${promo.requierePar ? 'cada 2 hamburguesas' : 'hamburguesa'})</div>
  <div id="pcm-requeridos-list" style="margin-bottom:16px;">${requeridosHtml}</div>
  ` : ''}
  <button class="btn-action" onclick="_pcmConfirmarAgregar('${promoId}')" style="width:100%;padding:12px;">Agregar al carrito</button>
@@ -2629,9 +2629,14 @@ window._promoComboAgregarAlCarrito = function(promoId, lineasBurgers, requeridoI
  const requerido = idElegido ? _buscarProductoEnMenu(idElegido) : null;
 
  if (requerido) {
- const cantRequerida = totalBurgers * proporcion;
+ // Si la promo requierePar (2 burgers por cada unidad descontada),
+ // solo hace falta 1 papas por cada PAR de hamburguesas, no 1 por burger.
+ const unidadesADescontar = promo.requierePar ? Math.floor(totalBurgers / 2) : totalBurgers;
+ const cantRequerida = unidadesADescontar * proporcion;
+ if (cantRequerida > 0) {
  const precioRequerido = (menuOverrides[requerido.id] && menuOverrides[requerido.id].precio) ? menuOverrides[requerido.id].precio : requerido.p;
  carrito.push({ ...requerido, p: precioRequerido, cant: cantRequerida, sin: [], con: [], obs: '', totalItem: precioRequerido * cantRequerida });
+ }
  }
 
  guardarCarritoPersistente();
