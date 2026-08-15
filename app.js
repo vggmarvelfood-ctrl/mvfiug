@@ -934,12 +934,12 @@ function calcularDescuentoComboAuto(items, metodoActual) {
 
   // Pool de unidades disponibles por producto (para que dos promos no
   // puedan usar la misma papa o la misma burger dos veces). Cada entrada
-  // guarda el precio unitario tantas veces como unidades haya.
-  const pool = {}; // productId -> [precioUnit, precioUnit, ...]
+  // guarda el precio unitario + nombre tantas veces como unidades haya.
+  const pool = {}; // productId -> [{precio, nombre}, ...]
   items.forEach(item => {
     const precioUnit = item.cant > 0 ? (item.totalItem / item.cant) : 0;
     pool[item.id] = pool[item.id] || [];
-    for (let k = 0; k < item.cant; k++) pool[item.id].push(precioUnit);
+    for (let k = 0; k < item.cant; k++) pool[item.id].push({ precio: precioUnit, nombre: item.n });
   });
   const subtotalCarrito = items.reduce((s, i) => s + i.totalItem, 0);
 
@@ -954,7 +954,7 @@ function calcularDescuentoComboAuto(items, metodoActual) {
 
     // Unidades elegibles todavía disponibles (no consumidas por otra promo)
     const preciosDisponibles = [];
-    idsElegibles.forEach(id => { (pool[id] || []).forEach(precio => preciosDisponibles.push({ id, precio })); });
+    idsElegibles.forEach(id => { (pool[id] || []).forEach(u => preciosDisponibles.push({ id, precio: u.precio, nombre: u.nombre })); });
     let requeridasDisponibles = 0;
     idsRequeridos.forEach(id => { requeridasDisponibles += (pool[id] || []).length; });
 
@@ -981,14 +981,17 @@ function calcularDescuentoComboAuto(items, metodoActual) {
       return;
     }
 
-    // aplicaA === 'unidad' (default): descontar las unidades más caras
-    // primero — más favorable y predecible para el cliente.
-    preciosDisponibles.sort((a, b) => b.precio - a.precio);
+    // aplicaA === 'unidad' (default): descontar las unidades MÁS BARATAS
+    // primero — estándar de retail (protege el margen; la promo "segunda
+    // unidad" se aplica siempre sobre el ítem elegible de menor precio).
+    preciosDisponibles.sort((a, b) => a.precio - b.precio);
     let sumaAfectada = 0;
     const idsConsumidosElegibles = [];
+    const nombresDescontados = [];
     for (let k = 0; k < unidadesConDescuento; k++) {
       sumaAfectada += preciosDisponibles[k].precio;
       idsConsumidosElegibles.push(preciosDisponibles[k].id);
+      nombresDescontados.push(preciosDisponibles[k].nombre);
     }
     const monto = Math.round(sumaAfectada * (promo.descPct / 100));
     if (monto <= 0) return;
@@ -999,7 +1002,7 @@ function calcularDescuentoComboAuto(items, metodoActual) {
     _promoComboConsumir(pool, idsRequeridos, unidadesConDescuento * proporcion);
 
     montoTotal += monto;
-    detalles.push({ id: promo.id, nombre: promo.nombre || (promo.descPct + '% OFF'), unidades: unidadesConDescuento, monto });
+    detalles.push({ id: promo.id, nombre: promo.nombre || (promo.descPct + '% OFF'), unidades: unidadesConDescuento, monto, itemsDescontados: nombresDescontados });
   });
 
   return { montoTotal, detalles };
@@ -1199,9 +1202,18 @@ function renderCartItems() {
  if (resultCombo.detalles.length > 0) {
  const divCombo = document.createElement('div');
  divCombo.id = "detalle-combo-ui";
- divCombo.innerHTML = resultCombo.detalles.map(d =>
- `<div style="display: flex; justify-content: space-between; margin-bottom: 8px; color: #10b981; font-weight: 600;"><span>🎉 ${d.nombre} (${d.unidades} ud.)</span><span>-$${d.monto.toLocaleString()}</span></div>`
- ).join('');
+ divCombo.innerHTML = resultCombo.detalles.map(d => {
+   // Agrupa los nombres descontados (ej: 2x Black Panther, 1x Capitana Marvel)
+   // para mostrar exactamente a cuál hamburguesa se le aplicó el % OFF.
+   let detalleItems = '';
+   if (d.itemsDescontados && d.itemsDescontados.length) {
+     const conteo = {};
+     d.itemsDescontados.forEach(n => { conteo[n] = (conteo[n] || 0) + 1; });
+     const partes = Object.entries(conteo).map(([n, c]) => (c > 1 ? `${c}x ${n}` : n));
+     detalleItems = `<div style="font-size:11px;color:#6ee7b7;margin-top:2px;font-weight:500;">Aplicado a: ${partes.join(', ')}</div>`;
+   }
+   return `<div style="margin-bottom:8px;"><div style="display: flex; justify-content: space-between; color: #10b981; font-weight: 600;"><span>🎉 ${d.nombre} (${d.unidades} ud.)</span><span>-$${d.monto.toLocaleString()}</span></div>${detalleItems}</div>`;
+ }).join('');
  totalBox.parentNode.insertBefore(divCombo, totalBox);
  }
 
