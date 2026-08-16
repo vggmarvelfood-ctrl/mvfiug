@@ -1008,6 +1008,16 @@ function calcularDescuentoComboAuto(items, metodoActual) {
   return { montoTotal, detalles };
 }
 
+// Agrupa la lista de nombres de items descontados en formato legible
+// ("2x Vision, Black Panther") — usado en WhatsApp, panel admin y carrito,
+// para mostrar siempre a qué producto exacto se le aplicó el % OFF.
+function _formatearItemsDescontados(nombres) {
+  if (!nombres || !nombres.length) return '';
+  const conteo = {};
+  nombres.forEach(n => { conteo[n] = (conteo[n] || 0) + 1; });
+  return Object.entries(conteo).map(([n, c]) => (c > 1 ? `${c}x ${n}` : n)).join(', ');
+}
+
 // Descuenta `cantidad` unidades del pool, repartidas entre los ids dados
 // (en el orden en que aparecen), sin importar cuál específicamente.
 function _promoComboConsumir(pool, ids, cantidad) {
@@ -1203,15 +1213,8 @@ function renderCartItems() {
  const divCombo = document.createElement('div');
  divCombo.id = "detalle-combo-ui";
  divCombo.innerHTML = resultCombo.detalles.map(d => {
-   // Agrupa los nombres descontados (ej: 2x Black Panther, 1x Capitana Marvel)
-   // para mostrar exactamente a cuál hamburguesa se le aplicó el % OFF.
-   let detalleItems = '';
-   if (d.itemsDescontados && d.itemsDescontados.length) {
-     const conteo = {};
-     d.itemsDescontados.forEach(n => { conteo[n] = (conteo[n] || 0) + 1; });
-     const partes = Object.entries(conteo).map(([n, c]) => (c > 1 ? `${c}x ${n}` : n));
-     detalleItems = `<div style="font-size:11px;color:#6ee7b7;margin-top:2px;font-weight:500;">Aplicado a: ${partes.join(', ')}</div>`;
-   }
+   const aplicadoA = _formatearItemsDescontados(d.itemsDescontados);
+   const detalleItems = aplicadoA ? `<div style="font-size:11px;color:#6ee7b7;margin-top:2px;font-weight:500;">Aplicado a: ${aplicadoA}</div>` : '';
    return `<div style="margin-bottom:8px;"><div style="display: flex; justify-content: space-between; color: #10b981; font-weight: 600;"><span>🎉 ${d.nombre} (${d.unidades} ud.)</span><span>-$${d.monto.toLocaleString()}</span></div>${detalleItems}</div>`;
  }).join('');
  totalBox.parentNode.insertBefore(divCombo, totalBox);
@@ -1693,6 +1696,8 @@ async function _procesarPedidoImpl() {
  if (promosComboAplicadas && promosComboAplicadas.length > 0) {
  promosComboAplicadas.forEach(p => {
  t += `*Promo aplicada:* ${p.nombre} (${p.unidades} ud.) -$${p.monto.toLocaleString('es-AR')}%0A`;
+ const aplicadoA = _formatearItemsDescontados(p.itemsDescontados);
+ if (aplicadoA) t += `  → Aplicado a: ${aplicadoA}%0A`;
  });
  }
  t += `%0A*TOTAL FINAL: $${total.toLocaleString('es-AR')}*%0A`;
@@ -3934,7 +3939,7 @@ function admRenderCard(p) {
  <div class="adm-irow"><span class="l">Hora retiro</span><span class="v" style="color:var(--primary)"> ${p.horarioEstimado || '—'}</span></div> `}
  <div class="adm-irow"><span class="l">Pago</span><span class="v">${p.pago || '—'}</span></div> ${p.cuponUsado && p.cuponUsado !== 'Ninguno' ? `<div class="adm-irow"><span class="l">Cupón</span><span class="v" style="color:#10b981">${p.cuponUsado}</span></div>` : ''}
  ${p.codigoInterno ? `<div class="adm-irow"><span class="l">Código</span><span class="v" style="color:#a78bfa;font-family:monospace;font-weight:800;">${p.codigoInterno.codigo} <span style="font-family:sans-serif;font-weight:400;color:#9ca3af;">— ${p.codigoInterno.nombre}</span></span></div>` : ''}
- ${p.promoComboAplicada && p.promoComboAplicada.length > 0 ? p.promoComboAplicada.map(promo => `<div class="adm-irow"><span class="l">Promo</span><span class="v" style="color:#10b981;font-weight:700;">🎉 ${promo.nombre} (${promo.unidades} ud.) -$${(promo.monto||0).toLocaleString('es-AR')}</span></div>`).join('') : ''}
+ ${p.promoComboAplicada && p.promoComboAplicada.length > 0 ? p.promoComboAplicada.map(promo => `<div class="adm-irow"><span class="l">Promo</span><span class="v" style="color:#10b981;font-weight:700;">🎉 ${promo.nombre} (${promo.unidades} ud.) -$${(promo.monto||0).toLocaleString('es-AR')}${_formatearItemsDescontados(promo.itemsDescontados) ? `<div style="font-size:11px;color:#6ee7b7;font-weight:500;">Aplicado a: ${_formatearItemsDescontados(promo.itemsDescontados)}</div>` : ''}</span></div>`).join('') : ''}
  ${p.gps && p.gps !== 'No provisto' ? `<div class="adm-irow"><span class="l">GPS</span><span class="v"><a href="http://maps.google.com/maps?q=${p.gps}" target="_blank" style="color:#3b82f6">Ver mapa</a></span></div>` : ''}
  ${p.obs ? `<div class="adm-irow"><span class="l">Obs.</span><span class="v">${p.obs}</span></div>` : ''}
 
