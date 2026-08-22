@@ -631,6 +631,9 @@ window.cambiarSucursalPrincipal = () => {
  // La opción "Mercado Pago" depende de la sucursal (cada una tiene su
  // propia cuenta/token) — re-evaluar visibilidad al cambiar.
  if (typeof _syncMpOptionVisibility === 'function') _syncMpOptionVisibility();
+ // La disponibilidad de productos puede variar por sucursal (ej: una
+ // sucursal sin nuggets) — recalcular la grilla del menú al cambiar.
+ if (typeof renderMenu === 'function') renderMenu();
 };
 
 // BATCH RENDERING — carga progresiva del catálogo 
@@ -689,6 +692,10 @@ function renderMenu() {
  _batchQueue = [];
  if (_batchObs) { _batchObs.disconnect(); _batchObs = null; }
 
+ // Sucursal actualmente elegida por el cliente — determina si un
+ // producto pausado SOLO en esa sucursal también debe verse agotado acá.
+ const _sucActual = document.getElementById('main-sucursal')?.value || null;
+
  MENU.forEach((c, idx) => {
  // Botón de categoría 
  const btn = document.createElement('button');
@@ -719,9 +726,11 @@ function renderMenu() {
  // Encolar cada item (no se inserta en DOM todavía) 
  c.items.forEach(p => {
  p.cat = c.cat; // para que el modal sepa qué extras mostrar
- const precioFinal = (menuOverrides[p.id] && menuOverrides[p.id].precio)
- ? menuOverrides[p.id].precio : p.p;
- const agotado = !!(menuOverrides[p.id] && menuOverrides[p.id].agotado === true);
+ const ov = menuOverrides[p.id];
+ const precioFinal = (ov && ov.precio) ? ov.precio : p.p;
+ // Un producto puede estar pausado GLOBALMENTE (agotado en todas las
+ // sucursales) o solo en la sucursal actual (agotadoPorSucursal).
+ const agotado = !!(ov && (ov.agotado === true || (_sucActual && ov.agotadoPorSucursal && ov.agotadoPorSucursal[_sucActual] === true)));
  _batchQueue.push({ grid, html: _buildCardHtml(p, precioFinal, agotado) });
  });
  });
@@ -2777,8 +2786,10 @@ window._promoComboAgregarAlCarrito = function(promoId, lineasBurgers, requeridoI
  const cardsHtml = items.map(entry => {
  const prod = _buscarProductoMenuPorId(Number(entry.id));
  if (!prod) return '';
- // No promocionar algo que el admin marcó sin stock
- if (menuOverrides[prod.id] && menuOverrides[prod.id].agotado === true) return '';
+ const _ov = menuOverrides[prod.id];
+ const _sucAct = document.getElementById('main-sucursal')?.value || null;
+ // No promocionar algo que el admin marcó sin stock (global o en esta sucursal)
+ if (_ov && (_ov.agotado === true || (_sucAct && _ov.agotadoPorSucursal && _ov.agotadoPorSucursal[_sucAct] === true))) return '';
  const precio = (menuOverrides[prod.id] && menuOverrides[prod.id].precio) ? menuOverrides[prod.id].precio : prod.p;
  const badge = (entry.badge && entry.badge.trim()) || ' Más pedido';
  const _safeJson = JSON.stringify({ ...prod, p: precio }).replace(/&/g, '&amp;').replace(/'/g, '&#39;');
@@ -6448,15 +6459,61 @@ async function admCargarMenuGestion() {
  h.innerText = cat.cat; lista.appendChild(h);
  cat.items.forEach(item => {
  const o = ov[item.id]||{}; const agotado=o.agotado===true; const precio=o.precio||item.p;
+ const porSuc = o.agotadoPorSucursal || {};
+ const pausadasCount = MP_SUCURSALES.filter(s => porSuc[s] === true).length;
  const row = document.createElement('div'); row.className='adm-menu-row';
  row.innerHTML = '<div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:700;color:var(--white);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+item.n+'</div><div style="font-size:11px;color:#9ca3af;">Base: $'+item.p.toLocaleString('es-AR')+'</div></div>'
  +'<input class="adm-price-inp" type="number" value="'+precio+'" id="price-'+item.id+'">'
  +'<div style="display:flex;flex-direction:column;align-items:center;gap:2px;"><label class="adm-toggle"><input type="checkbox" '+(agotado?'':'checked')+' onchange="admToggleProducto('+item.id+')" id="tog-'+item.id+'"><span class="adm-toggle-slider"></span></label><span style="font-size:9px;color:'+(agotado?'#ef4444':'#10b981')+';" id="lbl-tog-'+item.id+'">'+(agotado?'Agotado':'Activo')+'</span></div>'
- +'<button onclick="admGuardarPrecio('+item.id+')" style="background:rgba(245,158,11,.15);border:1px solid var(--primary);color:var(--primary);padding:6px 10px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">Guardar</button>';
+ +'<button onclick="admGuardarPrecio('+item.id+')" style="background:rgba(245,158,11,.15);border:1px solid var(--primary);color:var(--primary);padding:6px 10px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">Guardar</button>'
+ +'<button onclick="admTogglePanelSucursales('+item.id+')" id="btn-suc-'+item.id+'" style="background:'+(pausadasCount>0?'rgba(239,68,68,.15)':'rgba(255,255,255,.05)')+';border:1px solid '+(pausadasCount>0?'#ef4444':'var(--border)')+';color:'+(pausadasCount>0?'#ef4444':'#9ca3af')+';padding:6px 10px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">Sucursales'+(pausadasCount>0?' ('+pausadasCount+')':'')+'</button>';
  lista.appendChild(row);
+
+ // Panel desplegable con un toggle por sucursal — oculto por defecto
+ const panel = document.createElement('div');
+ panel.id = 'panel-suc-'+item.id;
+ panel.style.cssText = 'display:none;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin:-6px 0 10px;';
+ panel.innerHTML = '<div style="font-size:10px;color:#9ca3af;font-weight:700;margin-bottom:8px;">DISPONIBLE EN:</div>'
+   + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;">'
+   + MP_SUCURSALES.map(suc => {
+       const pausadaAqui = porSuc[suc] === true;
+       return '<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--white);cursor:pointer;">'
+         + '<input type="checkbox" '+(pausadaAqui?'':'checked')+' onchange="admToggleProductoSucursal('+item.id+',\''+suc+'\',this)" style="width:15px;height:15px;accent-color:#10b981;">'
+         + (MP_SUCURSAL_LABEL[suc] || suc)
+         + '</label>';
+     }).join('')
+   + '</div>';
+ lista.appendChild(panel);
  });
  });
 }
+
+window.admTogglePanelSucursales = (id) => {
+ const panel = document.getElementById('panel-suc-'+id);
+ if (panel) panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+};
+
+// Pausa/activa un producto SOLO en una sucursal puntual (a diferencia de
+// admToggleProducto, que lo pausa en TODAS). Ej: nuggets sin stock en
+// Pellegrini pero disponibles en Funes.
+window.admToggleProductoSucursal = async (id, sucId, checkbox) => {
+ const disponibleAhi = checkbox.checked;
+ const upd = {}; upd[id] = { agotadoPorSucursal: {} };
+ upd[id].agotadoPorSucursal[sucId] = !disponibleAhi;
+ try {
+ await db.collection("config_menu").doc("overrides").set(upd, { merge: true });
+ // Refrescar el contador en el botón "Sucursales"
+ const btn = document.getElementById('btn-suc-'+id);
+ if (btn) {
+ const panel = document.getElementById('panel-suc-'+id);
+ const pausadas = panel ? Array.from(panel.querySelectorAll('input[type="checkbox"]')).filter(c => !c.checked).length : 0;
+ btn.textContent = 'Sucursales' + (pausadas > 0 ? ' (' + pausadas + ')' : '');
+ btn.style.background = pausadas > 0 ? 'rgba(239,68,68,.15)' : 'rgba(255,255,255,.05)';
+ btn.style.borderColor = pausadas > 0 ? '#ef4444' : 'var(--border)';
+ btn.style.color = pausadas > 0 ? '#ef4444' : '#9ca3af';
+ }
+ } catch(e) { alert("Error: "+e.message); checkbox.checked = !checkbox.checked; }
+};
 
 window.admToggleProducto = async (id) => {
  const tog = document.getElementById('tog-'+id);
