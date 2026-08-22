@@ -2125,10 +2125,18 @@ function validarDireccion(dir) {
 }
 
 function validarTelefono(tel) {
-  // Teléfono argentino: solo dígitos, 8-14 chars
-  const soloDigitos = tel.replace(/\D/g, '');
-  const regex = /^(54|9)?(341|342|343|332|336|337|338|339|351|352|353|354|355|356|358|359|361|362|363|364|365|366|367|368|369|371|372|373|374|375|376|377|378|379|381|382|383|384|385|386|387|388|389|391|392|393|394|395|396|397|398|399)\d{6,8}$/;
-  return regex.test(soloDigitos);
+  // ANTES: regex con una whitelist fija de códigos de área (341, 342,
+  // 351...) que solo aceptaba UN prefijo (54 *o* 9, nunca los dos
+  // juntos) — rechazaba números reales como "+54 9 3407 49-4751"
+  // (código de área 3407, que ni siquiera estaba en la lista).
+  // AHORA: se despojan los prefijos argentinos conocidos (54, 549, 9) y
+  // se valida solo que lo que queda tenga una longitud plausible de
+  // código de área + número — sin importar de qué localidad sea.
+  let digitos = tel.replace(/\D/g, '');
+  if (digitos.startsWith('549')) digitos = digitos.slice(3);
+  else if (digitos.startsWith('54')) digitos = digitos.slice(2);
+  else if (digitos.startsWith('9') && digitos.length > 10) digitos = digitos.slice(1);
+  return digitos.length >= 8 && digitos.length <= 11;
 }
 
 window.validarDatosEnvio = function() {
