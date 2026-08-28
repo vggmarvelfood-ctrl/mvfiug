@@ -978,6 +978,31 @@ function calcularDescuentoComboAuto(items, metodoActual) {
     if (promo.limiteUnidades > 0) unidadesConDescuento = Math.min(unidadesConDescuento, promo.limiteUnidades);
     if (unidadesConDescuento <= 0) return;
 
+    // Precio fijo por par (ej: "2X1 Natasha Doble = $14.200") — en vez de
+    // calcular con el %, se cobra directamente el precio que definió el
+    // admin por el par completo. Toma las 2 unidades más baratas
+    // disponibles por cada par, para no afectar el margen de más de lo
+    // necesario si hay burgers de distinto precio en el carrito.
+    if (promo.requierePar && promo.precioCombo > 0) {
+      preciosDisponibles.sort((a, b) => a.precio - b.precio);
+      const totalUnidadesUsadas = unidadesConDescuento * 2;
+      let sumaOriginal = 0;
+      const idsConsumidosElegibles = [];
+      const nombresDescontados = [];
+      for (let k = 0; k < totalUnidadesUsadas; k++) {
+        sumaOriginal += preciosDisponibles[k].precio;
+        idsConsumidosElegibles.push(preciosDisponibles[k].id);
+        nombresDescontados.push(preciosDisponibles[k].nombre);
+      }
+      const monto = Math.max(0, Math.round(sumaOriginal - (promo.precioCombo * unidadesConDescuento)));
+      if (monto <= 0) return;
+      idsConsumidosElegibles.forEach(id => { if (pool[id] && pool[id].length) pool[id].pop(); });
+      _promoComboConsumir(pool, idsRequeridos, unidadesConDescuento * proporcion);
+      montoTotal += monto;
+      detalles.push({ id: promo.id, nombre: promo.nombre || ('Combo $' + promo.precioCombo.toLocaleString('es-AR')), unidades: totalUnidadesUsadas, monto, itemsDescontados: nombresDescontados });
+      return;
+    }
+
     if (promo.aplicaA === 'pedido') {
       // Descuento sobre el pedido completo (una sola vez, si se cumple la
       // condición de emparejamiento al menos 1 vez).
@@ -2563,7 +2588,7 @@ window.abrirPromoComboModal = function(promoId) {
  }).join('');
 
  document.getElementById('m-info-body').innerHTML = `
- <p style="margin-bottom:14px;">${promo.descripcion || ('Llevando el acompañamiento requerido, cada hamburguesa elegida tiene ' + promo.descPct + '% OFF.')}</p>
+ <p style="margin-bottom:14px;">${promo.descripcion || (promo.precioCombo > 0 ? ('Llevando el acompañamiento requerido, el par de hamburguesas elegidas queda en $' + promo.precioCombo.toLocaleString('es-AR') + '.') : ('Llevando el acompañamiento requerido, cada hamburguesa elegida tiene ' + promo.descPct + '% OFF.'))}</p>
  ${promo.requierePar ? `<p style="margin:-8px 0 14px;font-size:11px;color:#a78bfa;">⚠️ Necesitás al menos 2 hamburguesas (pueden ser iguales o distintas) para que el descuento se active.</p>` : ''}
  <div style="font-size:12px;color:#9ca3af;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Elegí tus hamburguesas</div>
  <div id="pcm-burgers-list" style="margin-bottom:16px;">${burgersHtml}</div>
@@ -5569,10 +5594,15 @@ function admRenderPromosCombo() {
        </div>
        <label style="position:relative;display:inline-block;width:44px;height:24px;cursor:pointer;flex-shrink:0;margin-left:10px;">
          <input type="checkbox" id="pcf-requiere-par" style="opacity:0;width:0;height:0;"
-           onchange="const s=this.nextElementSibling;const d=s.nextElementSibling;s.style.background=this.checked?'#3b82f6':'#333';d.style.left=this.checked?'22px':'2px';">
+           onchange="const s=this.nextElementSibling;const d=s.nextElementSibling;s.style.background=this.checked?'#3b82f6':'#333';d.style.left=this.checked?'22px':'2px';admTogglePrecioComboVisible();">
          <span style="position:absolute;inset:0;background:#333;border-radius:12px;transition:.3s;"></span>
          <span style="position:absolute;top:2px;left:2px;width:20px;height:20px;background:#fff;border-radius:50%;transition:.3s;box-shadow:0 1px 4px rgba(0,0,0,.4);"></span>
        </label>
+     </div>
+     <div id="pcf-precio-combo-box" style="display:none;margin-top:10px;padding-top:10px;border-top:1px dashed rgba(59,130,246,.3);">
+       <div style="font-size:10px;color:#9ca3af;font-weight:700;margin-bottom:4px;">PRECIO FINAL DEL COMBO (opcional, en vez de %)</div>
+       <input id="pcf-precio-combo" type="number" min="0" placeholder="Ej: 14200 (precio de LAS 2 hamburguesas juntas)" style="width:100%;padding:9px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--white);font-size:13px;outline:none;box-sizing:border-box;">
+       <p style="font-size:10px;color:#6b7280;margin:6px 0 0;line-height:1.4;">Si lo completás, se ignora el % de descuento y se cobra exactamente este precio por el par — útil para promos tipo "2X1 queda $14.200" sin tener que calcular el porcentaje a mano.</p>
      </div>
    </div>
 
@@ -5621,11 +5651,11 @@ function admRenderPromosCombo() {
    <div style="font-size:13px;font-weight:800;color:${activo ? 'var(--white)' : '#6b7280'};">${p.nombre || '(sin nombre)'}</div>
    <span style="background:${activo ? 'rgba(16,185,129,.15)' : 'rgba(107,114,128,.15)'};color:${activo ? '#10b981' : '#6b7280'};font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;">${activo ? 'ACTIVA' : 'INACTIVA'}</span>
  </div>
- <div style="font-size:11px;color:#9ca3af;margin-bottom:8px;">${p.descPct || 0}% OFF · ${cantBurgers} burger(s) elegibles · ${cantReq} producto(s) requeridos · ${p.aplicaA === 'pedido' ? 'al pedido completo' : 'por unidad'}</div>
+ <div style="font-size:11px;color:#9ca3af;margin-bottom:8px;">${p.precioCombo > 0 ? ('Combo $' + p.precioCombo.toLocaleString('es-AR')) : ((p.descPct || 0) + '% OFF')} · ${cantBurgers} burger(s) elegibles · ${cantReq} producto(s) requeridos · ${p.aplicaA === 'pedido' ? 'al pedido completo' : 'por unidad'}</div>
  <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">
    ${vigencia}
    ${p.soloEfectivo ? '<span style="background:rgba(59,130,246,.12);color:#60a5fa;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;">Solo Efectivo</span>' : ''}
-   ${p.requierePar ? '<span style="background:rgba(139,92,246,.12);color:#a78bfa;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;">Requiere pareja (2×1)</span>' : ''}
+   ${p.requierePar ? `<span style="background:rgba(139,92,246,.12);color:#a78bfa;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;">${p.precioCombo > 0 ? ('2×1 · $' + p.precioCombo.toLocaleString('es-AR') + ' el par') : 'Requiere pareja (2×1)'}</span>` : ''}
    ${p.limiteUnidades > 0 ? `<span style="background:rgba(245,158,11,.12);color:var(--primary);font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;">Límite: ${p.limiteUnidades} ud.</span>` : ''}
  </div>
  <div style="display:flex;gap:8px;">
@@ -5652,6 +5682,14 @@ window._pcfToggleFila = function(checkbox) {
  label.style.borderColor = 'transparent';
  if (mark) mark.style.display = 'none';
  }
+};
+
+// El precio fijo del combo solo tiene sentido junto con "Requiere pareja"
+// (2x1) — se necesitan 2 unidades para armar "el par a precio fijo".
+window.admTogglePrecioComboVisible = function() {
+ const par = document.getElementById('pcf-requiere-par')?.checked;
+ const box = document.getElementById('pcf-precio-combo-box');
+ if (box) box.style.display = par ? 'block' : 'none';
 };
 
 window.admAbrirFormPromoCombo = function(id) {
@@ -5703,6 +5741,7 @@ window.admAbrirFormPromoCombo = function(id) {
  document.getElementById('pcf-aplica-a').value = p?.aplicaA || 'unidad';
  document.getElementById('pcf-limite').value = p?.limiteUnidades || '';
  document.getElementById('pcf-metodo-pago').value = p?.soloEfectivo ? 'efectivo' : 'todos';
+ document.getElementById('pcf-precio-combo').value = p?.precioCombo || '';
  { const parCb = document.getElementById('pcf-requiere-par'); parCb.checked = !!p?.requierePar; parCb.dispatchEvent(new Event('change')); }
  document.getElementById('pcf-fecha-desde').value = p?.fechaDesde || '';
  document.getElementById('pcf-fecha-hasta').value = p?.fechaHasta || '';
@@ -5737,6 +5776,7 @@ window.admGuardarFormPromoCombo = async function() {
  const limiteUnidades = parseInt(document.getElementById('pcf-limite').value, 10) || 0;
  const soloEfectivo = document.getElementById('pcf-metodo-pago').value === 'efectivo';
  const requierePar = document.getElementById('pcf-requiere-par').checked;
+ const precioCombo = requierePar ? (parseInt(document.getElementById('pcf-precio-combo').value, 10) || 0) : 0;
  const fechaDesde = document.getElementById('pcf-fecha-desde').value || null;
  const fechaHasta = document.getElementById('pcf-fecha-hasta').value || null;
  const activo = document.getElementById('pcf-activo').checked;
@@ -5744,14 +5784,16 @@ window.admGuardarFormPromoCombo = async function() {
  const productosRequeridos = Array.from(document.querySelectorAll('.pcf-req-check:checked')).map(el => parseInt(el.value, 10));
 
  if (!nombre) { err.textContent = 'Ingresá un nombre para la promo.'; return; }
- if (!descPct || descPct <= 0 || descPct > 100) { err.textContent = 'Ingresá un % de descuento válido (1-100).'; return; }
+ // El % de descuento solo es obligatorio si NO se definió un precio fijo
+ // de combo (son dos formas alternativas de definir el mismo descuento).
+ if (!precioCombo && (!descPct || descPct <= 0 || descPct > 100)) { err.textContent = 'Ingresá un % de descuento válido (1-100), o un precio fijo de combo.'; return; }
  if (productosElegibles.length === 0) { err.textContent = 'Tildá al menos una hamburguesa para el descuento.'; return; }
  if (productosRequeridos.length === 0) { err.textContent = 'Tildá al menos un producto que habilite el descuento (ej: las papas).'; return; }
  if (fechaDesde && fechaHasta && fechaDesde > fechaHasta) { err.textContent = 'La fecha "desde" no puede ser posterior a "hasta".'; return; }
 
  const datos = {
  nombre, descripcion, img, descPct, proporcion, aplicaA, limiteUnidades,
- soloEfectivo, requierePar, fechaDesde, fechaHasta, activo, productosElegibles, productosRequeridos
+ soloEfectivo, requierePar, precioCombo, fechaDesde, fechaHasta, activo, productosElegibles, productosRequeridos
  };
 
  try {
@@ -6474,12 +6516,12 @@ async function admCargarMenuGestion() {
  panel.id = 'panel-suc-'+item.id;
  panel.style.cssText = 'display:none;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin:-6px 0 10px;';
  panel.innerHTML = '<div style="font-size:10px;color:#9ca3af;font-weight:700;margin-bottom:8px;">DISPONIBLE EN:</div>'
-   + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;">'
+   + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;">'
    + MP_SUCURSALES.map(suc => {
        const pausadaAqui = porSuc[suc] === true;
-       return '<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--white);cursor:pointer;">'
-         + '<input type="checkbox" '+(pausadaAqui?'':'checked')+' onchange="admToggleProductoSucursal('+item.id+',\''+suc+'\',this)" style="width:15px;height:15px;accent-color:#10b981;">'
-         + (MP_SUCURSAL_LABEL[suc] || suc)
+       return '<label id="lbl-suc-'+item.id+'-'+suc+'" style="display:flex;align-items:center;gap:6px;font-size:12px;color:'+(pausadaAqui?'#ef4444':'var(--white)')+';font-weight:'+(pausadaAqui?'700':'400')+';cursor:pointer;">'
+         + '<input type="checkbox" '+(pausadaAqui?'':'checked')+' onchange="admToggleProductoSucursal('+item.id+',\''+suc+'\',this)" style="width:15px;height:15px;accent-color:#10b981;flex-shrink:0;">'
+         + '<span>'+(MP_SUCURSAL_LABEL[suc] || suc)+(pausadaAqui?' <span style="font-size:10px;">(Sin stock)</span>':'')+'</span>'
          + '</label>';
      }).join('')
    + '</div>';
@@ -6502,6 +6544,17 @@ window.admToggleProductoSucursal = async (id, sucId, checkbox) => {
  upd[id].agotadoPorSucursal[sucId] = !disponibleAhi;
  try {
  await db.collection("config_menu").doc("overrides").set(upd, { merge: true });
+
+ // Recolorear la etiqueta de ESTA sucursal puntual (roja = sin stock)
+ const lbl = document.getElementById('lbl-suc-'+id+'-'+sucId);
+ if (lbl) {
+ const pausadaAqui = !disponibleAhi;
+ lbl.style.color = pausadaAqui ? '#ef4444' : 'var(--white)';
+ lbl.style.fontWeight = pausadaAqui ? '700' : '400';
+ const span = lbl.querySelector('span');
+ if (span) span.innerHTML = (MP_SUCURSAL_LABEL[sucId] || sucId) + (pausadaAqui ? ' <span style="font-size:10px;">(Sin stock)</span>' : '');
+ }
+
  // Refrescar el contador en el botón "Sucursales"
  const btn = document.getElementById('btn-suc-'+id);
  if (btn) {
