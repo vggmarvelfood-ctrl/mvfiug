@@ -383,6 +383,25 @@ window.admCargarConfiguracion = async function () {
       </div>
     </div>
 
+    <!-- SECCIÓN: BANNER INSTALAR APP (PWA) -->
+    <div style="background:var(--surface);border:1px solid rgba(16,185,129,.3);border-radius:14px;
+      padding:16px;margin-bottom:20px;">
+      <div style="font-size:12px;color:#10b981;font-weight:700;text-transform:uppercase;
+        letter-spacing:.5px;margin-bottom:12px;"> Cartel de Instalar App (PWA)</div>
+
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <div>
+          <span style="font-size:12px;color:var(--white);font-weight:700;display:block;">
+            Mostrar cartel "Instalar app" a los clientes
+          </span>
+          <span style="font-size:10px;color:#6b7280;display:block;margin-top:2px;">
+            Si está desactivado, el cliente NO verá el banner para agregar la app al inicio (ni en Android ni en iOS).
+          </span>
+        </div>
+        ${toggle('cfg-pwa-banner-activo', general.pwaBannerActivo !== false, "admCfgTogglePwaBanner(this.checked)")}
+      </div>
+    </div>
+
     <!-- SECCIÓN: CIERRE TEMPORAL -->
  <div style="background:var(--surface);border:1px solid rgba(239,68,68,.3);border-radius:14px;
  padding:16px;margin-bottom:20px;">
@@ -568,6 +587,16 @@ window.admCfgToggleWspCliente = function (activo) {
   if (preview) preview.style.opacity = activo ? '1' : '0.4';
 };
 
+window.admCfgTogglePwaBanner = function (activo) {
+  const chk = document.getElementById('cfg-pwa-banner-activo');
+  if (chk) {
+    const span = chk.nextElementSibling;
+    const dot = span && span.nextElementSibling;
+    if (span) span.style.background = activo ? '#10b981' : '#333';
+    if (dot) dot.style.left = activo ? '22px' : '2px';
+  }
+};
+
 window.admCfgToggleTracking = function (activo) {
   const chk = document.getElementById('cfg-tracking-activo');
   if (chk) {
@@ -628,6 +657,7 @@ window.admGuardarConfiguracion = async function () {
  cierreMensaje: document.getElementById('cfg-cierre-msg')?.value.trim() || '',
  wspClienteActivo: document.getElementById('cfg-wsp-cliente-activo')?.checked !== false,
  trackingActivo: document.getElementById('cfg-tracking-activo')?.checked !== false,
+ pwaBannerActivo: document.getElementById('cfg-pwa-banner-activo')?.checked !== false,
  };
 
     // Recolectar secciones visibles
@@ -712,6 +742,7 @@ window.cargarConfigGeneral = async function () {
  if (gen.mensajeActivo && gen.mensajeTexto) _mostrarMensajeGlobal(gen.mensajeTexto, gen.mensajeColor);
  window._cfgWspClienteActivo = gen.wspClienteActivo !== false;
  window._cfgTrackingActivo   = gen.trackingActivo !== false;
+ window._cfgPwaBannerActivo  = gen.pwaBannerActivo !== false;
 
     // Aplicar visibilidad de secciones al cargar el storefront
     aplicarVisibilidadSecciones(cfg.secciones || {});
@@ -761,6 +792,11 @@ window._admAplicarConfigEnVivo = function ({ general, telefonos }) {
  window._cfgWspClienteActivo = gen.wspClienteActivo !== false;
  // Flag tracking (propagado a app.js)
  window._cfgTrackingActivo = gen.trackingActivo !== false;
+ // Flag banner PWA (propagado a sw-pwa.js)
+ window._cfgPwaBannerActivo = gen.pwaBannerActivo !== false;
+ if (window._cfgPwaBannerActivo === false && typeof window.pwaDismissBanner === 'function') {
+   window.pwaDismissBanner();
+ }
 
  // Teléfonos en SUC_MAP en memoria
  if (telefonos && window.SUC_MAP) {
