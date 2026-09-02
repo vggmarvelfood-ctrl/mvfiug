@@ -22,8 +22,16 @@ function _pwaBannerHeight() {
  return (b && b.classList.contains('visible')) ? b.offsetHeight : 0;
 }
 
+function _pwaBannerHabilitado() {
+ // Configurable desde el panel admin (tab Configuración → "Cartel de
+ // Instalar App"). Por defecto está habilitado; solo se apaga si el
+ // admin explícitamente lo desactivó (window._cfgPwaBannerActivo === false).
+ return window._cfgPwaBannerActivo !== false;
+}
+
 function _pwaMostrarBanner() {
  if (_pwaEsInstalada()) return;
+ if (!_pwaBannerHabilitado()) return;
  const banner = document.getElementById('pwa-install-banner');
  if (!banner) return;
 
