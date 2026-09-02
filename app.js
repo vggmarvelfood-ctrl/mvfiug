@@ -310,7 +310,7 @@ const MENU = [
       { id: 6, n: "Iron Man", p: 11900, d: "Medallón Marvel, cebolla caramelizada, BBQ, cheddar y panceta.", img: "https://i.ibb.co/9kR57Dqt/Ironman-9.jpg", ings: ["Cebolla caramelizada", "BBQ", "Cheddar", "Panceta"] },
       { id: 7, n: "Loki", p: 11300, d: "Medallón Marvel, panceta, lechuga, provolone, cheddar picante, mayonesa y cebolla.", img: "https://i.ibb.co/N2XJ7FKz/Loki-7.jpg", ings: ["Panceta", "Provolone", "Cheddar picante", "Lechuga", "Cebolla"] },
       { id: 8, n: "Natasha", p: 10100, d: "Medallón Marvel y cheddar.", img: "https://i.ibb.co/wND2yZMC/Natasha-6.jpg", ings: ["Cheddar"] },
-      { id: 9, n: "Peter Parker", p: 10100, d: "Medallón Marvel, cebolla caramelizada, cheddar y ketchup.", img: "https://i.ibb.co/hJ8F2Cz7/Peter-3.jpg", ings: ["Cebolla caramelizada", "Cheddar", "Ketchup"] },
+      { id: 9, n: "Peter Parker", p: 10100, d: "Medallón Marvel, cebolla cruda en cubo, cheddar y ketchup.", img: "https://i.ibb.co/hJ8F2Cz7/Peter-3.jpg", ings: ["Cebolla caramelizada", "Cheddar", "Ketchup"] },
       { id: 10, n: "Thanos", p: 20700, d: "4 medallones Marvel, cheddar, cebolla caramelizada, panceta y salsa especial.", img: "https://i.ibb.co/pBmFm18N/Thanos-6.jpg", ings: ["Cheddar", "Cebolla caramelizada", "Panceta", "Salsa especial"] },
       { id: 11, n: "Vision", p: 10600, d: "Medallón Marvel, lechuga, tomate, muzarella, panceta y aderezo de albahaca.", img: "https://i.ibb.co/4RQG77sj/Visi-n-1.jpg", ings: ["Lechuga", "Tomate", "Muzarella", "Panceta", "Aderezo de albahaca"] },
       { id: 12, n: "Wanda", p: 10100, d: "Medallón Marvel, lechuga, tomate, muzarella, cebolla morada y palta.", img: "https://i.ibb.co/qL7nFvtY/Wanda-1.jpg", ings: ["Lechuga", "Tomate", "Muzarella", "Cebolla morada", "Palta"] },
@@ -329,7 +329,7 @@ const MENU = [
       { id: 35, n: "Iron Man Veggie", p: 7800, d: "Cebolla caramelizada, BBQ y cheddar. Opción: Choclo y Arroz o Remolacha y Semillas.", img: "https://i.ibb.co/1GR38SQw/Iron-man.png", ings: ["Cebolla caramelizada", "BBQ", "Cheddar"] },
       { id: 36, n: "Loki Veggie", p: 7800, d: "Lechuga, provolone, cheddar picante, mayonesa y cebolla. Opción: Choclo y Arroz o Remolacha y Semillas.", img: "https://i.ibb.co/xSZw4Rbg/Loki.png", ings: ["Lechuga", "Provolone", "Cheddar picante", "Mayonesa", "Cebolla"] },
       { id: 37, n: "Natasha Veggie", p: 7800, d: "Cheddar. Opción: Choclo y Arroz o Remolacha y Semillas.", img: "https://i.ibb.co/mrK9yk4x/Natasha-veggie.png", ings: ["Cheddar"] },
-      { id: 38, n: "Peter Parker Veggie", p: 7800, d: "Cebolla caramelizada, cheddar y ketchup. Opción: Choclo y Arroz o Remolacha y Semillas.", img: "https://i.ibb.co/b5xZFfFX/Peter-veggie.png", ings: ["Cebolla caramelizada", "Cheddar", "Ketchup"] },
+      { id: 38, n: "Peter Parker Veggie", p: 7800, d: "Cebolla cruda en cubo, cheddar y ketchup. Opción: Choclo y Arroz o Remolacha y Semillas.", img: "https://i.ibb.co/b5xZFfFX/Peter-veggie.png", ings: ["Cebolla caramelizada", "Cheddar", "Ketchup"] },
       { id: 39, n: "Vision Veggie", p: 7800, d: "Lechuga, tomate, muzarella y aderezo de albahaca. Opción: Choclo y Arroz o Remolacha y Semillas.", img: "https://i.ibb.co/67CFDgxV/vision-veggie-rappi.png", ings: ["Lechuga", "Tomate", "Muzarella", "Aderezo de albahaca"] },
       { id: 40, n: "Wanda Veggie", p: 7800, d: "Lechuga, tomate, muzarella, cebolla morada y palta. Opción: Choclo y Arroz o Remolacha y Semillas.", img: "https://i.ibb.co/4w6QvhMz/Wanda.png", ings: ["Lechuga", "Tomate", "Muzarella", "Cebolla morada", "Palta"] }
     ]
