@@ -2530,7 +2530,7 @@ function obtenerCuponDelDia() {
  const combosVisibles = (window._promosComboAuto || []).filter(p => _promoComboEsVigente(p));
  const combosHtml = combosVisibles.map(p => {
  const cantBurgers = (p.productosElegibles || []).length;
- return `<div class="promo-card"><div class="badge-promo">🎉 AUTOMÁTICA</div>${(p.img) ? `<img src="${p.img}" width="400" height="140" style="width:100%; height:140px; object-fit:cover; border-radius:10px; margin-bottom:10px;" loading="lazy" decoding="async" onerror="this.style.display='none'">` : ''}<h3 style="font-size:16px; font-weight:800;">${p.nombre}</h3><p style="font-size:12px; color:var(--text-light); margin: 5px 0;">${p.descripcion || (p.descPct + '% OFF en ' + cantBurgers + ' hamburguesa(s) seleccionadas')}</p><button class="btn-action" onclick="abrirPromoComboModal('${p.id}')" style="margin-top:12px; padding:10px; font-size:13px;">VER PROMO</button></div>`;
+ return `<div class="promo-card"><div class="badge-promo">PROMO</div>${(p.img) ? `<img src="${p.img}" width="400" height="140" style="width:100%; height:140px; object-fit:cover; border-radius:10px; margin-bottom:10px;" loading="lazy" decoding="async" onerror="this.style.display='none'">` : ''}<h3 style="font-size:16px; font-weight:800;">${p.nombre}</h3><p style="font-size:12px; color:var(--text-light); margin: 5px 0;">${p.descripcion || (p.descPct + '% OFF en ' + cantBurgers + ' hamburguesa(s) seleccionadas')}</p><button class="btn-action" onclick="abrirPromoComboModal('${p.id}')" style="margin-top:12px; padding:10px; font-size:13px;">VER PROMO</button></div>`;
  }).join('');
 
  if (promosVisibles.length === 0 && combosVisibles.length === 0) {
