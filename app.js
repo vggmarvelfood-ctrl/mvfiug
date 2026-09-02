@@ -229,9 +229,9 @@ const PROMOS_DATA_BASE = PROMOS_DATA.map(p => ({ ...p }));
 
 const SUC_MAP = {
  Centro: { n: "PELLEGRINI 1149, Rosario Centro", wsp: "5493413890000", mapImg: "https://i.ibb.co/Mxp9b7Tp/mapas-2026-estetica-nueva-1-Centro.png", locs: {
-  "PELLEGRINI":          2300,
-  "Rosario Centro":      2300,
-  "Fuera de zona":       2500
+  "PELLEGRINI":          2600,
+  "Rosario Centro":      2600,
+  "Fuera de zona":       2800
  } },
  Norte: { n: "Rondeau 2430, Rosario Norte", wsp: "5493417034333", mapImg: "https://i.ibb.co/dsxs1vQF/mapas-2026-estetica-nueva-2-Centro.png", locs: {
   "NORTE 1":             2300,
