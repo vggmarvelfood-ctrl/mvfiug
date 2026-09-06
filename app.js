@@ -372,7 +372,7 @@ const EXTRAS_GLOBALES = [
   { id: "713", n: "Panceta", p: 900, tipo: "papas" },
   { id: "710", n: "Verdeo", p: 900, tipo: "papas" },
   { id: "711", n: "Dip de Cheddar", p: 900, tipo: "papas" },
-  { id: "300", n: "Sumar Bebida", p: 3300, tipo: "promo" } // Actualizado según precio Pepsi 500cc (3300)
+  { id: "300", n: "Sumar Bebida Lata 360ml", p: 3500, tipo: "promo" } // Actualizado según precio Pepsi 500cc (3300)
 ];
 
 
@@ -383,11 +383,11 @@ const EXTRAS_GLOBALES = [
 
 // NUEVO: Horarios por sucursal mapeados con los IDs (Centro = Pellegrini)
 const HORARIOS_SUCURSALES = {
- Centro: { m_start: "11:30", m_end: "18:00", n_start: "19:00", n_end: "23:30" },
- Norte: { m_start: "11:30", m_end: "18:00", n_start: "19:00", n_end: "23:30" },
- Sur: { m_start: "11:30", m_end: "18:00", n_start: "19:00", n_end: "23:00" },
- Funes: { m_start: "11:30", m_end: "18:00", n_start: "19:00", n_end: "23:00" },
- Cafferata: { m_start: "11:30", m_end: "18:00", n_start: "19:00", n_end: "23:00" }
+ Centro: { m_start: "11:30", m_end: "16:00", n_start: "19:00", n_end: "23:30" },
+ Norte: { m_start: "11:30", m_end: "16:00", n_start: "19:00", n_end: "23:30" },
+ Sur: { m_start: "11:30", m_end: "15:00", n_start: "19:00", n_end: "23:00" },
+ Funes: { m_start: "11:30", m_end: "16:00", n_start: "19:00", n_end: "23:00" },
+ Cafferata: { m_start: "11:30", m_end: "16:00", n_start: "19:00", n_end: "23:30" }
 };
 
 // NUEVO: Función para evaluar la hora real y renderizar el cartel
