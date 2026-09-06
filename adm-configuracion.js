@@ -331,7 +331,7 @@ window.admCargarConfiguracion = async function () {
         font-size:11px;color:#9ca3af;font-family:monospace;line-height:1.7;white-space:pre-wrap;
         opacity:${general.wspClienteActivo !== false ? '1' : '0.4'};transition:opacity .3s;">*NUEVO PEDIDO | MARVEL FOOD*
 ---------------------------
-*Sucursal:* San Martin 1808, Rosario Sur
+*Sucursal:* San Martin 5681, Rosario Sur
 *Horario Est.:* 20:14 a 20:29 hs
 *Teléfono:* 3413 24-4444
 *Cliente:* NOMBRE APELLIDO
