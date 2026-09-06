@@ -293,7 +293,7 @@ let marvelDelDiaOverrides = {}; // precios de "Marvel del día" por día de sema
 const ZONA_INFO_UI = {
  Centro: { label: "Rosario Centro", direccion: "Pellegrini 1149, Rosario" },
  Norte:  { label: "Rosario Norte",  direccion: "Rondeau 2430, Rosario" },
- Sur:    { label: "Rosario Sur",    direccion: "San Martín 1808, Rosario" },
+ Sur:    { label: "Rosario Sur",    direccion: "San Martín 5681, Rosario" },
  Funes:  { label: "Funes",          direccion: "RN9 972, Funes" },
  Cafferata: { label: "Cafferata",   direccion: "Cafferata y Urquiza, Rosario" }
 };
