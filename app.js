@@ -242,7 +242,7 @@ const SUC_MAP = {
   "Rosario Norte":       2300,
   "Granadero Baigorria": 2300
  } },
- Sur: { n: "San Martin 1808, Rosario Sur", wsp: "5493413244444", mapImg: "https://i.ibb.co/LKX8S4F/mapas-2026-estetica-nueva-3-Centro.png", locs: {
+ Sur: { n: "San Martin 5681, Rosario Sur", wsp: "5493413244444", mapImg: "https://i.ibb.co/LKX8S4F/mapas-2026-estetica-nueva-3-Centro.png", locs: {
   "ZONA SUR":            2800,
   "GALVEZ 1":            3300,
   "GALVEZ 2":            3300,
@@ -2120,7 +2120,7 @@ function _buildZonaOverride(sucursalActual) {
     <option value="">-- Sin cambios --</option>
     <option value="Centro" ${sucursalActual==='Centro'?'selected':''}>Rosario Centro (Pellegrini 1149)</option>
     <option value="Norte" ${sucursalActual==='Norte'?'selected':''}>Rosario Norte (Rondeau 2430)</option>
-    <option value="Sur" ${sucursalActual==='Sur'?'selected':''}>Rosario Sur (San Martin 1808)</option>
+    <option value="Sur" ${sucursalActual==='Sur'?'selected':''}>Rosario Sur (San Martin 5681)</option>
     <option value="Funes" ${sucursalActual==='Funes'?'selected':''}>Funes (RN9 972)</option>
   </select>
  </div>`;
@@ -3909,7 +3909,7 @@ function admRenderPedidos() {
  const _NOMBRE_SUC = {
    Centro: 'Centro — Pellegrini 1149',
    Norte: 'Norte — Rondeau 2430',
-   Sur: 'Sur / VGG — San Martin 1808',
+   Sur: 'Sur / VGG — San Martin 5681',
    Funes: 'Funes — RN9 972',
    Cafferata: 'Cafferata — Cafferata y Urquiza',
  };
@@ -3960,7 +3960,7 @@ function admRenderCard(p) {
  const SUCURSALES_OPTS = [
  'PELLEGRINI 1149, Rosario Centro',
  'Rondeau 2430, Rosario Norte',
- 'San Martin 1808, Rosario Sur',
+ 'San Martin 5681, Rosario Sur',
  'RN9 972, Funes'
  ];
  const otrosSuc = SUCURSALES_OPTS.filter(s => s !== p.sucursal);
